@@ -68,7 +68,9 @@ otherwise you will be benchmarking against `document.querySelectorAll`.
 
 Zest will cache compiled selectors if it can't delegate to 
 `document.querySelectorAll`, `document.getElementById`, and 
-`document.getElementsByClassName` (depending).
+`document.getElementsByClassName` (depending). __(The benchmark tests you see 
+above were performed with the caching mechanism disabled. If caching were 
+enabled, Zest would be faster than the native `document.querySelectorAll`).__
 
 __Unsupported Selectors:__ `nth-last-of-type`, `nth-last-child`, `:hover`, 
 `:link`, `:unvisited`, and all pseudo elements.
