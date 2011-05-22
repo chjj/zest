@@ -7,8 +7,8 @@ bit more.
 
 Zest was designed to be very concise while still supporting css3 selectors 
 and remaining fast. For context, when compared to the well-known Sizzle engine:
-  - Zest - less than 400 lines, and ~170 semicolons.
-  - Sizzle - 1413 lines and 413 semicolons.
+    - Zest - less than 400 lines, and ~170 semicolons.
+    - Sizzle - 1413 lines and 413 semicolons.
 
 ## Benchmarks
 
@@ -91,5 +91,5 @@ during a filter. Return true if the element matches your selector.
 
 ## License
 
-(c) Copyright 2011, Christopher Jeffrey (MIT Licensed)
+(c) Copyright 2011, Christopher Jeffrey (MIT Licensed). 
 See LICENSE for more info.
