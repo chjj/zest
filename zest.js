@@ -46,37 +46,6 @@ var nth = function(param) {
   return { group: group, off: off };
 };
 
-// ========== COMPATIBILITY ========== //
-var qsa = document.querySelectorAll && (function() {
-  try {
-    document.querySelectorAll(':root');
-    return true;
-  } catch(e) {
-    return e && /:emp|:roo|:not|:nth|:las|:onl|of-|:ena|:dis|:che|:ind|\|=|\|/;
-  }
-})();
-
-var slice = (function() {
-  try {
-    Array.prototype.slice.call(document.getElementsByTagName('*'));
-    return function(obj) {
-      return Array.prototype.slice.call(obj);
-    };
-  } catch(e) { e = undefined; // gc wont clean this up
-    return function(obj) {
-      var a = [], i = obj.length;
-      while (i--) a[i] = obj[i];
-      return a;
-    };
-  }
-})();
-
-var comments = (function() {
-  var d = document.createElement('div');
-  d.appendChild(document.createComment('')); 
-  return !!d.getElementsByTagName('*')[0];
-})();
-
 // ========== SIMPLE SELECTORS ========== //
 var _simples = {
   ':first-child': function(el) {
@@ -171,14 +140,13 @@ var _simples = {
   ':target': function(el) {
     return el.id === location.hash.slice(1);
   },
-  //':subject': function(el) {
-  //  subject = el;
-  //  return true;
-  //},
+  '*': function() {
+    return true;
+  },
   'name': function(name) {
     name = name.toLowerCase(); 
     return function(el) {
-      return (el.nodeName.toLowerCase() === name || name === '*'); 
+      return el.nodeName.toLowerCase() === name; 
     };
   },
   'attr': function(reg, attr) {
@@ -227,10 +195,10 @@ var parse = function(sel) {
   var attr, op, val, m, reg, param;
   
   if (typeof sel !== 'string') {
+    //console.log(sel);
     if (sel.length > 1) {
       var func = [], i = 0, l = sel.length;
       for (; i < l; i++) {
-        if (!sel[i]) continue;
         func.push(parse(sel[i]));
       }
       l = func.length;
@@ -242,7 +210,7 @@ var parse = function(sel) {
       };
     } else {
       // its a name
-      return _simples.name(sel[0]);
+      return _simples[sel[0]] || _simples.name(sel[0]);
     }
   }
   
@@ -262,7 +230,8 @@ var parse = function(sel) {
       if (param) sel = param[1], param = param[2].replace(/^['"]|['"]$/g, '');
       return param ? _simples[sel](param) : _simples[sel];
     default: // name
-      return _simples.name(sel);
+      // return sel === '*' ? _simples[sel] : _simples.name(sel);
+      return _simples[sel] || _simples.name(sel);
   }
   val = val.replace(/^['"]|['"]$/g, '');
   switch (op) {
@@ -319,17 +288,12 @@ var make = function(func) {
 };
 
 // ========== EXECUTION ========== //
-var exec = function(sel, con) {
-  var i = 0, res = [];
-  context = con || document;
-  
-  if (false && qsa && (qsa === true || !qsa.test(sel))) {
-    return slice(context.querySelectorAll(sel));
-  }
+var exec = function(sel) {
+  var i = 0, res = [], el, test, scope;
   
   // split up groups
   if (~sel.indexOf(',')) {
-    sel = sel.split(/,(?![^\[]*["'])/);
+    sel = sel.split(/,\s*(?![^\[]*["'])/);
     while (i < sel.length) {
       res = res.concat(exec(sel[i++], context));
     }
@@ -341,38 +305,77 @@ var exec = function(sel, con) {
   // trim
   sel = sel.replace(/^\s+|\s+$/g, '');
   
-  if (false && !~sel.indexOf(' ')) {
-    if (/^(\w+|\*)$/.test(sel)) {
-      return slice(context.getElementsByTagName(sel));
-    }
-    if (/^#\w+$/.test(sel)) {
-      return [context.getElementById(sel.slice(1))];
-    }
-    if (/^\.\w+$/.test(sel)) try {
-        return slice(context.getElementsByClassName(sel.slice(1)));
-    } catch(e) {}
-  }
-  
   // add implicit `any` selectors: e.g. :first-child becomes *:first-child
   sel = sel.replace(/(^|\s)(:|\[|\.|#)/g, '$1*$2');
+  //sel = sel.replace(/(^|[^\w*])(\[)|(^|[^\w*])(:|\.|#)(?![^\[]*["'])/g, '$1$3*$2$4');
   
-  var k = 0, el, test = cache[sel] || (cache[sel] = compile(sel)),
-      scope = context.getElementsByTagName(test.first);
-  if (comments && test.first === '*') {
-    while (el = scope[i++]) {
-      if (el.nodeType === 8) continue;
-      if (test(el)) res[k++] = el;
-    }
-  } else {
-    while (el = scope[i++]) if (test(el)) res[k++] = el;
+  //test = compile(sel); 
+  test = cache[sel] || (cache[sel] = compile(sel));
+  scope = context.getElementsByTagName(test.first); // move to compile?
+  while (el = scope[i++]) {
+    if (test(el)) res.push(el);
   }
   return res;
 };
 
-// wrap in a try/catch
-var zest = function zest(sel, context) {
+// ========== COMPATIBILITY ========== //
+var slice = (function() {
   try {
-    return exec(sel, context);
+    Array.prototype.slice.call(document.getElementsByTagName('*'));
+    return function(obj) {
+      return Array.prototype.slice.call(obj);
+    };
+  } catch(e) { e = undefined; // gc wont clean this up
+    return function(obj) {
+      var a = [], i = 0, l = obj.length;
+      for (; i < l; i++) a.push(obj[i]);
+      return a;
+    };
+  }
+})();
+
+var _exec = exec;
+if (document.querySelectorAll) {
+  exec = function(sel) {
+    try {
+      return slice(context.querySelectorAll(sel));
+    } catch(e) {
+      return _exec(sel);
+    }
+  };
+} else {
+  exec = function(sel) {
+    if (!~sel.indexOf(' ')) {
+      if (sel[0] === '#' && /^#\w+$/.test(sel)) {
+        return [context.getElementById(sel.slice(1))];
+      }
+      if (sel[0] === '.' && /^\.\w+$/.test(sel)) try {
+        return slice(context.getElementsByClassName(sel.slice(1)));
+      } catch(e) {}
+      if (/^\w+$/.test(sel)) {
+        return slice(context.getElementsByTagName(sel));
+      }
+    }
+    return _exec(sel);
+  };
+}
+
+if (function() {
+  var d = document.createElement('div');
+  d.appendChild(document.createComment('')); 
+  return !!d.getElementsByTagName('*')[0];
+}()) {
+  _simples['*'] = function(el) {
+    if (el.nodeType === 1) return true;
+  };
+}
+
+// ========== ZEST ========== //
+// wrap in a try/catch
+var zest = function zest(sel, con) {
+  context = con || document;
+  try {
+    return exec(sel);
   } catch(e) {
     if (console) console.log(e.stack || e + '');
     return [];
