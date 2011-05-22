@@ -73,9 +73,9 @@ above were performed with the caching mechanism disabled. If caching were
 enabled, Zest would be faster than the native `document.querySelectorAll`).__
 
 __Unsupported Selectors:__ `nth-last-of-type`, `nth-last-child`, `:hover`, 
-`:link`, `:unvisited`, and all pseudo elements.
+`:link`, `:visited`, and all pseudo elements.
 
-`:link`, `:unvisited`, and pseudo elements are unsupported for obvious reasons 
+`:link`, `:visited`, and pseudo elements are unsupported for obvious reasons 
 (they don't work). `:hover` isn't supported because it examines a dynamic state, 
 you should be binding to events for this. The `nth-last-x` pseudo-classes are 
 unsupported simply because I haven't gotten around to adding them.
