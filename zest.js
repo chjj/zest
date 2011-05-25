@@ -47,7 +47,23 @@ var nth = function(param) {
 };
 
 // ========== SIMPLE SELECTORS ========== //
-var _simples = {
+// note: for type and child selectors, in order to 
+// conform, the root element must never be considered.
+var _simple = {
+  '*': function() {
+    return true;
+  },
+  'name': function(name) {
+    name = name.toLowerCase(); 
+    return function(el) {
+      return el.nodeName.toLowerCase() === name; 
+    };
+  },
+  'attr': function(reg, attr) {
+    return function(el) {
+      return reg.test(el.getAttribute(attr) || '');
+    };
+  },
   ':first-child': function(el) {
     return !_prev(el) && el.parentNode !== context;
   },
@@ -59,13 +75,14 @@ var _simples = {
     return function(el) {
       if (el.parentNode === context) return;
       var d, i = 0, rel = _child(el.parentNode);
-      if (rel) do {
+      while (rel) {
         i++;
         if (rel === el) {
           d = p.off - i;
           return !p.group ? !d : !(d % p.group);
         }
-      } while(rel = _next(rel));
+        rel = _next(rel);
+      }
     };
   },
   ':only-child': function(el) {
@@ -112,24 +129,25 @@ var _simples = {
       if (el.parentNode === context) return;
       var type = el.nodeName, t;
       var d, i = 0, rel = _child(el.parentNode);
-      if (rel) do {
+      while (rel) {
         if (rel.nodeName === type) i++;
         if (rel === el) { 
           d = p.off - i;
           return !p.group ? !d : !(d % p.group);
         }
-      } while(rel = _next(rel));
+        rel = _next(rel);
+      }
     };
   },
   ':only-of-type': function(el) {
-    return _simples[':first-of-type'](el) 
-      && _simples[':last-of-type'](el);
+    return _simple[':first-of-type'](el) 
+      && _simple[':last-of-type'](el);
   },
   ':checked': function(el) {
     return !!(el.checked || el.selected);
   },
   ':indeterminate': function(el) {
-    return !_simples[':checked'](el);
+    return !_simple[':checked'](el);
   },
   ':enabled': function(el) {
     return !el.disabled;
@@ -139,25 +157,11 @@ var _simples = {
   },
   ':target': function(el) {
     return el.id === location.hash.slice(1);
-  },
-  '*': function() {
-    return true;
-  },
-  'name': function(name) {
-    name = name.toLowerCase(); 
-    return function(el) {
-      return el.nodeName.toLowerCase() === name; 
-    };
-  },
-  'attr': function(reg, attr) {
-    return function(el) {
-      return reg.test(el.getAttribute(attr) || '');
-    };
   }
 };
 
 // ========== COMBINATOR LOGIC ========== //
-var _combinators = {
+var _combinator = {
   'CHILD_COMBINATOR': function(test) {
     return function(el) { 
       return test(el = el.parentNode) && el;
@@ -192,10 +196,9 @@ var _combinators = {
 // ========== PARSING ========== //
 // parse simple selectors and return a `test`
 var parse = function(sel) {
-  var attr, op, val, m, reg, param;
+  var attr, op, val, cap, reg, param;
   
   if (typeof sel !== 'string') {
-    //console.log(sel);
     if (sel.length > 1) {
       var func = [], i = 0, l = sel.length;
       for (; i < l; i++) {
@@ -206,11 +209,11 @@ var parse = function(sel) {
         for (i = 0; i < l; i++) {
           if (!func[i](el)) return;
         }
-        return el;
+        return true; 
       };
     } else {
       // its a name
-      return _simples[sel[0]] || _simples.name(sel[0]);
+      return _simple[sel[0]] || _simple.name(sel[0]);
     }
   }
   
@@ -222,20 +225,20 @@ var parse = function(sel) {
       attr = 'id', op = '=', val = sel.slice(1);
       break;
     case '[': 
-      m = sel.match(/^\[([\w-]+)(?:(=|~=|\^=|\$=|\|=)([^\]]+))?\]/);
-      attr = m[1], op = m[2] || '=', val = m[3] || '.+';
+      cap = sel.match(/^\[([\w-]+)(?:(=|~=|\^=|\$=|\|=)([^\]]+))?\]/);
+      attr = cap[1], op = cap[2] || '=', val = cap[3] || '.+';
       break;
     case ':':
       param = sel.match(/^(:[\w-]+)\(([^)]+)\)/);
       if (param) sel = param[1], param = param[2].replace(/^['"]|['"]$/g, '');
-      return param ? _simples[sel](param) : _simples[sel];
+      return param ? _simple[sel](param) : _simple[sel];
     default: // name
-      // return sel === '*' ? _simples[sel] : _simples.name(sel);
-      return _simples[sel] || _simples.name(sel);
+      return _simple[sel] || _simple.name(sel);
   }
-  val = val.replace(/^['"]|['"]$/g, '');
+  
+  val = val.replace(/^['"]|['"]$/g, ''); // should probably escape regex here
   switch (op) {
-    case '=':  reg = new RegExp('^' + val + '$');
+    case '=': reg = new RegExp('^' + val + '$');
       break;
     case '*=': reg = new RegExp(val);
       break;
@@ -249,28 +252,29 @@ var parse = function(sel) {
       break;
     default: throw new Error('Bad attribute operator.');
   }
-  return _simples.attr(reg, attr);
+  return _simple.attr(reg, attr);
 };
 
-// tokenize the selector, return an array of `test` functions
-// returning functions is faster than returning tokens
+// tokenize the selector, return a compiled array of `test` 
+// functions - this is faster than returning tokens
 var compile = function(sel) {
-  var func = [], comb = _combinators.NONE, name, i, rule;
-  while (sel.length) { //for (;;) {
-    i = 0;
-    while (rule = rules[i++]) {
+  var func = [], comb = _combinator.NONE, name, i, rule, cap;
+  while (sel.length) { 
+    for (i = 0; rule = rules[i++];) {
       if (cap = sel.match(rule[1])) { 
         sel = sel.slice(0, -cap[0].length);
         if (rule[0] === 'ELEMENT') {
           cap = cap[0].split(/(?=[\[:.#])/);
           if (!name) name = cap[0];
-          func.push(comb(parse(cap))); 
+          func.push(comb(parse(cap)));
+          //continue;
         } else {
-          comb = _combinators[rule[0]];
-          break;
+          comb = _combinator[rule[0]];
+          break; 
         }
       }
     }
+    //if (!cap) break;
   }
   func = make(func);
   func.first = name;
@@ -297,19 +301,15 @@ var exec = function(sel) {
     while (i < sel.length) {
       res = res.concat(exec(sel[i++], context));
     }
-    // this array should be "uniquified", 
-    // but it would kill performance
     return res;
   }
   
   // trim
   sel = sel.replace(/^\s+|\s+$/g, '');
   
-  // add implicit `any` selectors: e.g. :first-child becomes *:first-child
+  // add implicit universal selectors
   sel = sel.replace(/(^|\s)(:|\[|\.|#)/g, '$1*$2');
-  //sel = sel.replace(/(^|[^\w*])(\[)|(^|[^\w*])(:|\.|#)(?![^\[]*["'])/g, '$1$3*$2$4');
   
-  //test = compile(sel); 
   test = cache[sel] || (cache[sel] = compile(sel));
   scope = context.getElementsByTagName(test.first); // move to compile?
   while (el = scope[i++]) {
@@ -319,13 +319,16 @@ var exec = function(sel) {
 };
 
 // ========== COMPATIBILITY ========== //
+var _exec = exec;
+
 var slice = (function() {
   try {
     Array.prototype.slice.call(document.getElementsByTagName('*'));
     return function(obj) {
       return Array.prototype.slice.call(obj);
     };
-  } catch(e) { e = undefined; // gc wont clean this up
+  } catch(e) { 
+    e = null; // gc wont clean this up
     return function(obj) {
       var a = [], i = 0, l = obj.length;
       for (; i < l; i++) a.push(obj[i]);
@@ -334,7 +337,6 @@ var slice = (function() {
   }
 })();
 
-var _exec = exec;
 if (document.querySelectorAll) {
   exec = function(sel) {
     try {
@@ -365,7 +367,7 @@ if (function() {
   d.appendChild(document.createComment('')); 
   return !!d.getElementsByTagName('*')[0];
 }()) {
-  _simples['*'] = function(el) {
+  _simple['*'] = function(el) {
     if (el.nodeType === 1) return true;
   };
 }
@@ -377,12 +379,14 @@ var zest = function zest(sel, con) {
   try {
     return exec(sel);
   } catch(e) {
-    if (console) console.log(e.stack || e + '');
+    if (typeof console !== 'undefined') {
+      console.log(e.stack || e + '');
+    }
     return [];
   }
 };
 
-zest.selectors = _simples;
+zest.selectors = _simple;
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = zest;
