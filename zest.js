@@ -1,12 +1,14 @@
 // Zest - a css selector engine
 // (c) Copyright 2011, Christopher Jeffrey (MIT Licensed)
 (function() {
-var context, cache = {};
+var window = this, 
+    doc = this.document, 
+    context, cache = {};
 
 // ========== RULES ========== //
 // the scanner will scan and slice in reverse
 var rules = [
-  ['ELEMENT', /(?:\w+|\*)(?:[.#:][^\s]+|\[[^\]]+\])*$/], 
+  ['SIMPLE_SELECTOR', /(?:\w+|\*)(?:[.#:][^\s]+|\[[^\]]+\])*$/], 
   ['CHILD_COMBINATOR', /\s*>\s*$/],
   ['ADJACENT_SIBLING', /\s*\+\s*$/],
   ['GENERAL_SIBLING', /\s*~\s*$/],
@@ -14,23 +16,22 @@ var rules = [
 ];
 
 // ========== HELPERS ========== //
-var _next = function(el) {
+// dom traversal
+var next = function(el) {
   while (el = el.nextSibling) {
     if (el.nodeType === 1) break;
   }
   return el;
 };
-
-var _prev = function(el) {
+var prev = function(el) {
   while (el = el.previousSibling) {
     if (el.nodeType === 1) break;
   }
   return el;
 };
-
-var _child = function(el) {
+var child = function(el) {
   el = el.firstChild;
-  if (el && el.nodeType !== 1) el = _next(el);
+  if (el && el.nodeType !== 1) el = next(el);
   return el;
 };
 
@@ -40,23 +41,24 @@ var nth = function(param) {
     .replace('odd', '2n+1').replace('even', '2n+0')
     .replace(/\s+/g, '').replace(/^\+?(\d+)$/, '0n+$1')
     .replace(/^-(\d+)$/, '0n-$1');
-  var m = param.match(/^([+-])?(\d+)?n([+-])?(\d+)?$/),
-      group = (m[1] === '-') ? -(m[2] || 1) : +(m[2] || 1), 
-      off = m[3] ? (m[3] === '-') ? -m[4] : +m[4] : 0;
-  return { group: group, off: off };
+  var m = param.match(/^([+-])?(\d+)?n([+-])?(\d+)?$/);
+  return { 
+    group: m[1] === '-' ? -(m[2] || 1) : +(m[2] || 1), 
+    off: m[3] ? (m[3] === '-' ? -m[4] : +m[4]) : 0 
+  };
 };
 
 // ========== SIMPLE SELECTORS ========== //
 // note: for type and child selectors, in order to 
 // conform, the root element must never be considered.
-var _simple = {
+var simple = {
   '*': function() {
     return true;
   },
-  'name': function(name) {
-    name = name.toLowerCase(); 
+  'type': function(type) {
+    type = type.toLowerCase(); 
     return function(el) {
-      return el.nodeName.toLowerCase() === name; 
+      return el.nodeName.toLowerCase() === type; 
     };
   },
   'attr': function(reg, attr) {
@@ -65,28 +67,28 @@ var _simple = {
     };
   },
   ':first-child': function(el) {
-    return !_prev(el) && el.parentNode !== context;
+    return !prev(el) && el.parentNode !== context;
   },
   ':last-child': function(el) {
-    return !_next(el) && el.parentNode !== context;
+    return !next(el) && el.parentNode !== context;
   },
   ':nth-child': function(p) {
     p = nth(p);
     return function(el) {
       if (el.parentNode === context) return;
-      var d, i = 0, rel = _child(el.parentNode);
+      var d, i = 0, rel = child(el.parentNode);
       while (rel) {
         i++;
         if (rel === el) {
           d = p.off - i;
           return !p.group ? !d : !(d % p.group);
         }
-        rel = _next(rel);
+        rel = next(rel);
       }
     };
   },
   ':only-child': function(el) {
-    return (!_prev(el) && !_next(el)) && el.parentNode !== context;
+    return (!prev(el) && !next(el)) && el.parentNode !== context;
   },
   ':root': function(el) {
     return el.ownerDocument.documentElement === el;
@@ -94,7 +96,9 @@ var _simple = {
   ':lang': function(param) {
     return function(el) {
       do {
-        if (el.lang === param) return true;
+        if (el.lang) {
+          return el.lang === param;
+        }
       } while (el = el.parentNode);
     };
   },
@@ -110,7 +114,7 @@ var _simple = {
   ':first-of-type': function(el) {
     if (el.parentNode === context) return;
     var type = el.nodeName;
-    while (el = _prev(el)) {
+    while (el = prev(el)) {
       if (el.nodeName === type) return;
     }
     return true;
@@ -118,7 +122,7 @@ var _simple = {
   ':last-of-type': function(el) {
     if (el.parentNode === context) return;
     var type = el.nodeName;
-    while (el = _next(el)) {
+    while (el = next(el)) {
       if (el.nodeName === type) return;
     }
     return true;
@@ -128,26 +132,26 @@ var _simple = {
     return function(el) {
       if (el.parentNode === context) return;
       var type = el.nodeName, t;
-      var d, i = 0, rel = _child(el.parentNode);
+      var d, i = 0, rel = child(el.parentNode);
       while (rel) {
         if (rel.nodeName === type) i++;
         if (rel === el) { 
           d = p.off - i;
           return !p.group ? !d : !(d % p.group);
         }
-        rel = _next(rel);
+        rel = next(rel);
       }
     };
   },
   ':only-of-type': function(el) {
-    return _simple[':first-of-type'](el) 
-      && _simple[':last-of-type'](el);
+    return simple[':first-of-type'](el) 
+            && simple[':last-of-type'](el);
   },
   ':checked': function(el) {
     return !!(el.checked || el.selected);
   },
   ':indeterminate': function(el) {
-    return !_simple[':checked'](el);
+    return !simple[':checked'](el);
   },
   ':enabled': function(el) {
     return !el.disabled;
@@ -156,12 +160,12 @@ var _simple = {
     return !!el.disabled;
   },
   ':target': function(el) {
-    return el.id === location.hash.slice(1);
+    return el.id === window.location.hash.slice(1);
   }
 };
 
 // ========== COMBINATOR LOGIC ========== //
-var _combinator = {
+var combinator = {
   'CHILD_COMBINATOR': function(test) {
     return function(el) { 
       return test(el = el.parentNode) && el;
@@ -169,12 +173,12 @@ var _combinator = {
   },
   'ADJACENT_SIBLING': function(test) {
     return function(el) { 
-      return test(el = _prev(el)) && el;
+      return test(el = prev(el)) && el;
     };
   },
   'GENERAL_SIBLING': function(test) { 
     return function(el) { 
-      while (el = _prev(el)) {
+      while (el = prev(el)) {
         if (test(el)) return el;
       }
     };
@@ -212,8 +216,8 @@ var parse = function(sel) {
         return true; 
       };
     } else {
-      // its a name
-      return _simple[sel[0]] || _simple.name(sel[0]);
+      // its `*` or a type selector
+      return simple[sel[0]] || simple.type(sel[0]);
     }
   }
   
@@ -231,12 +235,12 @@ var parse = function(sel) {
     case ':':
       param = sel.match(/^(:[\w-]+)\(([^)]+)\)/);
       if (param) sel = param[1], param = param[2].replace(/^['"]|['"]$/g, '');
-      return param ? _simple[sel](param) : _simple[sel];
-    default: // name
-      return _simple[sel] || _simple.name(sel);
+      return param ? simple[sel](param) : simple[sel];
+    default: // its `*` or a type selector
+      return simple[sel] || simple.type(sel);
   }
   
-  val = val.replace(/^['"]|['"]$/g, ''); // should probably escape regex here
+  val = val.replace(/^['"]|['"]$/g, '');
   switch (op) {
     case '=': reg = new RegExp('^' + val + '$');
       break;
@@ -252,29 +256,31 @@ var parse = function(sel) {
       break;
     default: throw new Error('Bad attribute operator.');
   }
-  return _simple.attr(reg, attr);
+  return simple.attr(reg, attr);
 };
 
 // tokenize the selector, return a compiled array of `test` 
 // functions - this is faster than returning tokens
 var compile = function(sel) {
-  var func = [], comb = _combinator.NONE, name, i, rule, cap;
+  var func = [], 
+      comb = combinator.NONE, 
+      name, i, rule, cap;
   while (sel.length) { 
     for (i = 0; rule = rules[i++];) {
       if (cap = sel.match(rule[1])) { 
         sel = sel.slice(0, -cap[0].length);
-        if (rule[0] === 'ELEMENT') {
+        // optimization: faster than comparing strings
+        if (i === 1) { 
           cap = cap[0].split(/(?=[\[:.#])/);
           if (!name) name = cap[0];
           func.push(comb(parse(cap)));
-          //continue;
         } else {
-          comb = _combinator[rule[0]];
-          break; 
+          comb = combinator[rule[0]];
+          break;
         }
       }
     }
-    //if (!cap) break;
+    if (!cap) break;
   }
   func = make(func);
   func.first = name;
@@ -282,7 +288,7 @@ var compile = function(sel) {
 };
 
 var make = function(func) {
-  return function (el) {
+  return function(el) {
     var i = 0, f;
     while (f = func[i++]) {
       if (!(el = f(el))) return;
@@ -299,9 +305,16 @@ var exec = function(sel) {
   if (~sel.indexOf(',')) {
     sel = sel.split(/,\s*(?![^\[]*["'])/);
     while (i < sel.length) {
-      res = res.concat(exec(sel[i++], context));
+      var cur = exec(sel[i++], context), cl = cur.length;
+      while (cl--) {
+        var rl = res.length;
+        while (rl-- && res[rl] !== cur[cl]);
+        if (res[rl] !== cur[cl]) {
+          res.push(cur[cl]);
+        }
+      }
     }
-    return res;
+    return res.reverse();
   }
   
   // trim
@@ -311,7 +324,7 @@ var exec = function(sel) {
   sel = sel.replace(/(^|\s)(:|\[|\.|#)/g, '$1*$2');
   
   test = cache[sel] || (cache[sel] = compile(sel));
-  scope = context.getElementsByTagName(test.first); // move to compile?
+  scope = context.getElementsByTagName(test.first); 
   while (el = scope[i++]) {
     if (test(el)) res.push(el);
   }
@@ -319,8 +332,6 @@ var exec = function(sel) {
 };
 
 // ========== COMPATIBILITY ========== //
-var _exec = exec;
-
 var slice = (function() {
   try {
     Array.prototype.slice.call(document.getElementsByTagName('*'));
@@ -328,7 +339,7 @@ var slice = (function() {
       return Array.prototype.slice.call(obj);
     };
   } catch(e) { 
-    e = null; // gc wont clean this up
+    e = null; 
     return function(obj) {
       var a = [], i = 0, l = obj.length;
       for (; i < l; i++) a.push(obj[i]);
@@ -337,12 +348,13 @@ var slice = (function() {
   }
 })();
 
+var wrapped = exec;
 if (document.querySelectorAll) {
   exec = function(sel) {
     try {
       return slice(context.querySelectorAll(sel));
     } catch(e) {
-      return _exec(sel);
+      return wrapped(sel);
     }
   };
 } else {
@@ -358,24 +370,23 @@ if (document.querySelectorAll) {
         return slice(context.getElementsByTagName(sel));
       }
     }
-    return _exec(sel);
+    return wrapped(sel);
   };
 }
 
 if (function() {
-  var d = document.createElement('div');
-  d.appendChild(document.createComment('')); 
-  return !!d.getElementsByTagName('*')[0];
+  var el = doc.createElement('div');
+  el.appendChild(doc.createComment('')); 
+  return !!el.getElementsByTagName('*')[0];
 }()) {
-  _simple['*'] = function(el) {
+  simple['*'] = function(el) {
     if (el.nodeType === 1) return true;
   };
 }
 
 // ========== ZEST ========== //
-// wrap in a try/catch
-var zest = function zest(sel, con) {
-  context = con || document;
+var zest = function(sel, con) {
+  context = con || doc;
   try {
     return exec(sel);
   } catch(e) {
@@ -386,11 +397,9 @@ var zest = function zest(sel, con) {
   }
 };
 
-zest.selectors = _simple;
+zest.selectors = simple;
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = zest;
-} else {
-  this.zest = zest;
-}
+// expose
+this.zest = zest;
+
 }).call(this);
