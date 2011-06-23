@@ -66,7 +66,7 @@ assert.selector = function(sel) {
   console.log('passed: ' + sel);
 };
 
-this.runTests = function() {
+var runTests = function() {
   assert.selector('body > header > h1');
   assert.selector('h1');
   assert.selector('*');
@@ -91,13 +91,16 @@ this.runTests = function() {
   assert.selector('h1 + time[datetime]:last-child');
   assert.selector(':nth-child(2n+1)');
   assert.selector(':nth-of-type(2n+1)');
+  assert.selector(':lang(en)');
   
   // this test wont pass because when it comes to groupings
   // zest doesn't get the order of the elements exactly perfect
   //assert.selector('a, h1');
 };
 
-this.bench = function(sel, times) {
+var bench = function(sel, times) {
+  // ie's js engine is roughly 5-10x 
+  // slower than any others (10x slower than v8)
   times = times || IE ? 100 : 1000;
   
   console.log('benchmarking: ' + '`' + sel + '` ' + times + ' times.');
@@ -115,12 +118,14 @@ this.bench = function(sel, times) {
   })();
   
   try {
-  (function() {
-    var start = (new Date().getTime());
-    for (var i = times; i--;) document.querySelectorAll(sel);
-    console.log('native:', (new Date().getTime()) - start);
-  })();
-  } catch(e) {}
+    (function() {
+      var start = (new Date().getTime());
+      for (var i = times; i--;) document.querySelectorAll(sel);
+      console.log('native:', (new Date().getTime()) - start);
+    })();
+  } catch(e) {
+    console.log('native:', 'failed');
+  }
 };
 
 setTimeout(function() { 

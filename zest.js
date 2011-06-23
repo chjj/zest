@@ -1,4 +1,4 @@
-// Zest - a css selector engine
+// Zest - a css selectors engine
 // (c) Copyright 2011, Christopher Jeffrey (MIT Licensed)
 (function() {
 var window = this, 
@@ -18,16 +18,15 @@ var rules = [
 // ========== HELPERS ========== //
 // dom traversal
 var next = function(el) {
-  while (el = el.nextSibling) if (el.nodeType === 1) break;
+  while ((el = el.nextSibling) && el.nodeType !== 1);
   return el;
 };
 var prev = function(el) {
-  while (el = el.previousSibling) if (el.nodeType === 1) break;
+  while ((el = el.previousSibling) && el.nodeType !== 1);
   return el;
 };
 var child = function(el) {
-  el = el.firstChild;
-  if (el && el.nodeType !== 1) el = next(el);
+  if (el = el.firstChild) while (el.nodeType !== 1 && (el = el.nextSibling));
   return el;
 };
 
@@ -49,9 +48,9 @@ var unquote = function(s, c) {
 };
 
 // ========== SIMPLE SELECTORS ========== //
-// note: for type and child selectors, in order to 
+// note: for type and child selectorss, in order to 
 // conform, the root element must never be considered.
-var selector = {
+var selectors = {
   '*': function() {
     return true;
   },
@@ -62,9 +61,10 @@ var selector = {
     };
   },
   'attr': function(key, op, val) {
-    var func = attribute[op];
+    var func = attributes[op];
     return function(el) {
-      return func(el.getAttribute(key), val);
+      var attr = el[key] != null ? el[key] : el.getAttribute(key);
+      return attr != null && func(attr + '', val);
     };
   },
   ':first-child': function(el) {
@@ -96,11 +96,10 @@ var selector = {
   },
   ':lang': function(param) {
     return function(el) {
-      do {
-        if (el.lang) {
-          return el.lang === param;
-        }
-      } while (el = el.parentNode);
+      while (el) {
+        if (el.lang) return el.lang.indexOf(param) === 0;
+        el = el.parentNode;
+      }
     };
   },
   ':empty': function(el) {
@@ -145,14 +144,14 @@ var selector = {
     };
   },
   ':only-of-type': function(el) {
-    return selector[':first-of-type'](el) 
-            && selector[':last-of-type'](el);
+    return selectors[':first-of-type'](el) 
+            && selectors[':last-of-type'](el);
   },
   ':checked': function(el) {
     return !!(el.checked || el.selected);
   },
   ':indeterminate': function(el) {
-    return !selector[':checked'](el);
+    return !selectors[':checked'](el);
   },
   ':enabled': function(el) {
     return !el.disabled;
@@ -167,30 +166,30 @@ var selector = {
 
 // ========== ATTRIBUTE OPERATORS ========== //
 // dont use any regexes, these should be faster
-var attribute = {
-  '-': function(attr, val) {
-    return attr != null;
+var attributes = {
+  '-': function() {
+    return true;
   },
   '=': function(attr, val) {
     return attr === val;
   },
   '*=': function(attr, val) {
-    return (attr || '').indexOf(val) !== -1;
+    return attr.indexOf(val) !== -1;
   },
   '~=': function(attr, val) {
-    var i = (attr || (attr = '')).indexOf(val);
+    var i = attr.indexOf(val);
     if (i === -1) return;
     var f = attr[i - 1], l = attr[i + val.length];
     return (f === ' ' && !l) || (l === ' ' && !f) || (!f && !l);
   },
   '|=': function(attr, val) {
-    var i = (attr || '').indexOf(val);
+    var i = attr.indexOf(val);
     if (i === -1) return;
     var l = attr[i + val.length];
     return l === '-' || !l;
   },
   '^=': function(attr, val) {
-    return (attr || '').indexOf(val) === 0;
+    return attr.indexOf(val) === 0;
   },
   '$=': function(attr, val) {
     return attr.length === (attr.indexOf(val) + val.length);
@@ -198,7 +197,7 @@ var attribute = {
 };
 
 // ========== COMBINATOR LOGIC ========== //
-var combinator = {
+var combinators = {
   'CHILD': function(test) {
     return function(el) { 
       return test(el = el.parentNode) && el;
@@ -231,7 +230,7 @@ var combinator = {
 };
 
 // ========== PARSING ========== //
-// parse selector selectors and return a `test`
+// parse selectors selectorss and return a `test`
 var parse = function(sel) {
   if (typeof sel !== 'string') {
     if (sel.length > 1) {
@@ -248,26 +247,26 @@ var parse = function(sel) {
       };
     }
     // just one - that means it's a type or universal
-    return sel[0] === '*' ? selector['*'] : selector.type(sel[0]);
+    return sel[0] === '*' ? selectors['*'] : selectors.type(sel[0]);
   }
   
   var cap, param;
   switch (sel[0]) {
-    case '.': return selector.attr('class', '~=', sel.slice(1));
-    case '#': return selector.attr('id', '=', sel.slice(1));
+    case '.': return selectors.attr('class', '~=', sel.slice(1));
+    case '#': return selectors.attr('id', '=', sel.slice(1));
     case '[': cap = sel.match(/^\[([\w-]+)(?:([^\w]?=)([^\]]+))?\]/);
-              return selector.attr(cap[1], cap[2] || '-', unquote(cap[3]));
+              return selectors.attr(cap[1], cap[2] || '-', unquote(cap[3]));
     case ':': cap = sel.match(/^(:[\w-]+)\(([^)]+)\)/);
               if (cap) sel = cap[1], param = unquote(cap[2]); 
-              return param ? selector[sel](param) : selector[sel];
-    default:  return sel === '*' ? selector[sel] : selector.type(sel);
+              return param ? selectors[sel](param) : selectors[sel];
+    default:  return sel === '*' ? selectors['*'] : selectors.type(sel);
   }
 };
 
-// tokenize the selector, return a compiled array of `test` 
+// tokenize the selectors, return a compiled array of `test` 
 // functions - this is faster than returning tokens
 var compile = function(sel) {
-  var func = [], comb = combinator.NONE, 
+  var func = [], comb = combinators.NONE, 
       name, i, rule, cap;
   while (sel.length) { 
     for (i = 0; rule = rules[i++];) {
@@ -279,7 +278,7 @@ var compile = function(sel) {
           if (!name) name = cap[0];
           func.push(comb(parse(cap)));
         } else {
-          comb = combinator[rule[0]];
+          comb = combinators[rule[0]];
           break;
         }
       }
@@ -321,7 +320,7 @@ var exec = function(sel) {
   var i = 0, res = [], 
       test, scope, el;
   
-  // trim and add implicit universal selectors
+  // trim and add implicit universal selectorss
   sel = sel.replace(/^\s+|\s+$/g, '')
            .replace(/(^|\s)(:|\[|\.|#)/g, '$1*$2');
   
@@ -380,7 +379,7 @@ if (function() {
   el.appendChild(doc.createComment('')); 
   return !!el.getElementsByTagName('*')[0];
 }()) {
-  selector['*'] = function(el) {
+  selectors['*'] = function(el) {
     if (el.nodeType === 1) return true;
   };
 }
@@ -398,9 +397,9 @@ var zest = function(sel, con) {
   }
 };
 
-zest.selectors = selector;
-zest.attributes = attribute;
-zest.combinators = combinator;
+zest.selectors = selectors;
+zest.attributes = attributes;
+zest.combinators = combinators;
 zest.rules = rules;
 
 // expose
