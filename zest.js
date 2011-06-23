@@ -6,27 +6,23 @@ var window = this,
     context, cache = {};
 
 // ========== RULES ========== //
-// the scanner will scan and slice in reverse
+// we scan and slice in reverse
 var rules = [
-  ['SIMPLE_SELECTOR', /(?:\w+|\*)(?:[.#:][^\s]+|\[[^\]]+\])*$/], 
-  ['CHILD_COMBINATOR', /\s*>\s*$/],
-  ['ADJACENT_SIBLING', /\s*\+\s*$/],
-  ['GENERAL_SIBLING', /\s*~\s*$/],
-  ['DESCENDANT_COMBINATOR', /\s+$/]
+  ['SIMPLE', /(?:\w+|\*)(?:[.#:][^\s]+|\[[^\]]+\])*$/], 
+  ['CHILD', /\s*>\s*$/],
+  ['ADJACENT', /\s*\+\s*$/],
+  ['GENERAL', /\s*~\s*$/],
+  ['DESCENDANT', /\s+$/]
 ];
 
 // ========== HELPERS ========== //
 // dom traversal
 var next = function(el) {
-  while (el = el.nextSibling) {
-    if (el.nodeType === 1) break;
-  }
+  while (el = el.nextSibling) if (el.nodeType === 1) break;
   return el;
 };
 var prev = function(el) {
-  while (el = el.previousSibling) {
-    if (el.nodeType === 1) break;
-  }
+  while (el = el.previousSibling) if (el.nodeType === 1) break;
   return el;
 };
 var child = function(el) {
@@ -37,21 +33,25 @@ var child = function(el) {
 
 // parse `nth` expressions
 var nth = function(param) {
-  param = param
+  var $ = param
     .replace('odd', '2n+1').replace('even', '2n+0')
     .replace(/\s+/g, '').replace(/^\+?(\d+)$/, '0n+$1')
-    .replace(/^-(\d+)$/, '0n-$1');
-  var m = param.match(/^([+-])?(\d+)?n([+-])?(\d+)?$/);
+    .replace(/^-(\d+)$/, '0n-$1')
+    .match(/^([+-])?(\d+)?n([+-])?(\d+)?$/);
   return { 
-    group: m[1] === '-' ? -(m[2] || 1) : +(m[2] || 1), 
-    off: m[3] ? (m[3] === '-' ? -m[4] : +m[4]) : 0 
+    group: $[1] === '-' ? -($[2] || 1) : +($[2] || 1), 
+    off: $[3] ? ($[3] === '-' ? -$[4] : +$[4]) : 0 
   };
+};
+
+var unquote = function(s, c) {
+  return (c = s && s[0]) && (c === '"' || c === '\'') ? s.slice(1, -1) : s;
 };
 
 // ========== SIMPLE SELECTORS ========== //
 // note: for type and child selectors, in order to 
 // conform, the root element must never be considered.
-var simple = {
+var selector = {
   '*': function() {
     return true;
   },
@@ -61,9 +61,10 @@ var simple = {
       return el.nodeName.toLowerCase() === type; 
     };
   },
-  'attr': function(reg, attr) {
+  'attr': function(key, op, val) {
+    var func = attribute[op];
     return function(el) {
-      return reg.test(el.getAttribute(attr) || '');
+      return func(el.getAttribute(key), val);
     };
   },
   ':first-child': function(el) {
@@ -144,14 +145,14 @@ var simple = {
     };
   },
   ':only-of-type': function(el) {
-    return simple[':first-of-type'](el) 
-            && simple[':last-of-type'](el);
+    return selector[':first-of-type'](el) 
+            && selector[':last-of-type'](el);
   },
   ':checked': function(el) {
     return !!(el.checked || el.selected);
   },
   ':indeterminate': function(el) {
-    return !simple[':checked'](el);
+    return !selector[':checked'](el);
   },
   ':enabled': function(el) {
     return !el.disabled;
@@ -164,26 +165,58 @@ var simple = {
   }
 };
 
+// ========== ATTRIBUTE OPERATORS ========== //
+// dont use any regexes, these should be faster
+var attribute = {
+  '-': function(attr, val) {
+    return attr != null;
+  },
+  '=': function(attr, val) {
+    return attr === val;
+  },
+  '*=': function(attr, val) {
+    return (attr || '').indexOf(val) !== -1;
+  },
+  '~=': function(attr, val) {
+    var i = (attr || (attr = '')).indexOf(val);
+    if (i === -1) return;
+    var f = attr[i - 1], l = attr[i + val.length];
+    return (f === ' ' && !l) || (l === ' ' && !f) || (!f && !l);
+  },
+  '|=': function(attr, val) {
+    var i = (attr || '').indexOf(val);
+    if (i === -1) return;
+    var l = attr[i + val.length];
+    return l === '-' || !l;
+  },
+  '^=': function(attr, val) {
+    return (attr || '').indexOf(val) === 0;
+  },
+  '$=': function(attr, val) {
+    return attr.length === (attr.indexOf(val) + val.length);
+  }
+};
+
 // ========== COMBINATOR LOGIC ========== //
 var combinator = {
-  'CHILD_COMBINATOR': function(test) {
+  'CHILD': function(test) {
     return function(el) { 
       return test(el = el.parentNode) && el;
     };
   },
-  'ADJACENT_SIBLING': function(test) {
+  'ADJACENT': function(test) {
     return function(el) { 
       return test(el = prev(el)) && el;
     };
   },
-  'GENERAL_SIBLING': function(test) { 
+  'GENERAL': function(test) { 
     return function(el) { 
       while (el = prev(el)) {
         if (test(el)) return el;
       }
     };
   },
-  'DESCENDANT_COMBINATOR': function(test) { 
+  'DESCENDANT': function(test) { 
     return function(el) { 
       while (el = el.parentNode) {
         if (test(el)) return el;
@@ -198,10 +231,8 @@ var combinator = {
 };
 
 // ========== PARSING ========== //
-// parse simple selectors and return a `test`
+// parse selector selectors and return a `test`
 var parse = function(sel) {
-  var attr, op, val, cap, reg, param;
-  
   if (typeof sel !== 'string') {
     if (sel.length > 1) {
       var func = [], i = 0, l = sel.length;
@@ -215,61 +246,34 @@ var parse = function(sel) {
         }
         return true; 
       };
-    } else {
-      // its `*` or a type selector
-      return simple[sel[0]] || simple.type(sel[0]);
     }
+    // just one - that means it's a type or universal
+    return sel[0] === '*' ? selector['*'] : selector.type(sel[0]);
   }
   
+  var cap, param;
   switch (sel[0]) {
-    case '.': 
-      attr = 'class', op = '~=', val = sel.slice(1);
-      break;
-    case '#': 
-      attr = 'id', op = '=', val = sel.slice(1);
-      break;
-    case '[': 
-      cap = sel.match(/^\[([\w-]+)(?:(=|~=|\^=|\$=|\|=)([^\]]+))?\]/);
-      attr = cap[1], op = cap[2] || '=', val = cap[3] || '.+';
-      break;
-    case ':':
-      param = sel.match(/^(:[\w-]+)\(([^)]+)\)/);
-      if (param) sel = param[1], param = param[2].replace(/^['"]|['"]$/g, '');
-      return param ? simple[sel](param) : simple[sel];
-    default: // its `*` or a type selector
-      return simple[sel] || simple.type(sel);
+    case '.': return selector.attr('class', '~=', sel.slice(1));
+    case '#': return selector.attr('id', '=', sel.slice(1));
+    case '[': cap = sel.match(/^\[([\w-]+)(?:([^\w]?=)([^\]]+))?\]/);
+              return selector.attr(cap[1], cap[2] || '-', unquote(cap[3]));
+    case ':': cap = sel.match(/^(:[\w-]+)\(([^)]+)\)/);
+              if (cap) sel = cap[1], param = unquote(cap[2]); 
+              return param ? selector[sel](param) : selector[sel];
+    default:  return sel === '*' ? selector[sel] : selector.type(sel);
   }
-  
-  val = val.replace(/^['"]|['"]$/g, '');
-  switch (op) {
-    case '=': reg = new RegExp('^' + val + '$');
-      break;
-    case '*=': reg = new RegExp(val);
-      break;
-    case '~=': reg = new RegExp('(^|\\s)' + val + '(\\s|$)');
-      break;
-    case '|=': reg = new RegExp('(^|-)' + val + '(-|$)');
-      break;
-    case '^=': reg = new RegExp('^' + val);
-      break;
-    case '$=': reg = new RegExp(val + '$');
-      break;
-    default: throw new Error('Bad attribute operator.');
-  }
-  return simple.attr(reg, attr);
 };
 
 // tokenize the selector, return a compiled array of `test` 
 // functions - this is faster than returning tokens
 var compile = function(sel) {
-  var func = [], 
-      comb = combinator.NONE, 
+  var func = [], comb = combinator.NONE, 
       name, i, rule, cap;
   while (sel.length) { 
     for (i = 0; rule = rules[i++];) {
       if (cap = sel.match(rule[1])) { 
         sel = sel.slice(0, -cap[0].length);
-        // optimization: faster than comparing strings
+        // faster than comparing strings
         if (i === 1) { 
           cap = cap[0].split(/(?=[\[:.#])/);
           if (!name) name = cap[0];
@@ -299,29 +303,27 @@ var make = function(func) {
 
 // ========== EXECUTION ========== //
 var exec = function(sel) {
-  var i = 0, res = [], el, test, scope;
-  
   // split up groups
   if (~sel.indexOf(',')) {
+    var res = [];
     sel = sel.split(/,\s*(?![^\[]*["'])/);
-    while (i < sel.length) {
-      var cur = exec(sel[i++], context), cl = cur.length;
-      while (cl--) {
-        var rl = res.length;
-        while (rl-- && res[rl] !== cur[cl]);
-        if (res[rl] !== cur[cl]) {
-          res.push(cur[cl]);
-        }
+    for (var s = 0, sl = sel.length; s < sl; s++) {
+      var cur = exec(sel[s], context);
+      for (var c = 0, cl = cur.length; c < cl; c++) {
+        var item = cur[c], rl = res.length;
+        while (rl-- && res[rl] !== item);
+        if (rl === -1) res.push(item);
       }
     }
-    return res.reverse();
+    return res;
   }
   
-  // trim
-  sel = sel.replace(/^\s+|\s+$/g, '');
+  var i = 0, res = [], 
+      test, scope, el;
   
-  // add implicit universal selectors
-  sel = sel.replace(/(^|\s)(:|\[|\.|#)/g, '$1*$2');
+  // trim and add implicit universal selectors
+  sel = sel.replace(/^\s+|\s+$/g, '')
+           .replace(/(^|\s)(:|\[|\.|#)/g, '$1*$2');
   
   test = cache[sel] || (cache[sel] = compile(sel));
   scope = context.getElementsByTagName(test.first); 
@@ -332,54 +334,53 @@ var exec = function(sel) {
 };
 
 // ========== COMPATIBILITY ========== //
-var slice = (function() {
-  try {
-    Array.prototype.slice.call(document.getElementsByTagName('*'));
-    return function(obj) {
-      return Array.prototype.slice.call(obj);
+exec = (function() {
+  var wrapped = exec;
+  var slice = (function() {
+    try {
+      Array.prototype.slice.call(document.getElementsByTagName('*'));
+      return Array.prototype.slice;
+    } catch(e) { 
+      e = null; 
+      return function() {
+        var a = [], i = 0, l = this.length;
+        for (; i < l; i++) a.push(this[i]);
+        return a;
+      };
+    }
+  })();
+  if (doc.querySelectorAll) {
+    return function(sel) {
+      try {
+        return slice.call(context.querySelectorAll(sel));
+      } catch(e) {
+        return wrapped(sel);
+      }
     };
-  } catch(e) { 
-    e = null; 
-    return function(obj) {
-      var a = [], i = 0, l = obj.length;
-      for (; i < l; i++) a.push(obj[i]);
-      return a;
+  } else {
+    return function(sel) {
+      if (!~sel.indexOf(' ')) {
+        if (sel[0] === '#' && /^#\w+$/.test(sel)) {
+          return [context.getElementById(sel.slice(1))];
+        }
+        if (sel[0] === '.' && /^\.\w+$/.test(sel)) try {
+          return slice.call(context.getElementsByClassName(sel.slice(1)));
+        } catch(e) {}
+        if (/^\w+$/.test(sel)) {
+          return slice.call(context.getElementsByTagName(sel));
+        }
+      }
+      return wrapped(sel);
     };
   }
 })();
-
-var wrapped = exec;
-if (document.querySelectorAll) {
-  exec = function(sel) {
-    try {
-      return slice(context.querySelectorAll(sel));
-    } catch(e) {
-      return wrapped(sel);
-    }
-  };
-} else {
-  exec = function(sel) {
-    if (!~sel.indexOf(' ')) {
-      if (sel[0] === '#' && /^#\w+$/.test(sel)) {
-        return [context.getElementById(sel.slice(1))];
-      }
-      if (sel[0] === '.' && /^\.\w+$/.test(sel)) try {
-        return slice(context.getElementsByClassName(sel.slice(1)));
-      } catch(e) {}
-      if (/^\w+$/.test(sel)) {
-        return slice(context.getElementsByTagName(sel));
-      }
-    }
-    return wrapped(sel);
-  };
-}
 
 if (function() {
   var el = doc.createElement('div');
   el.appendChild(doc.createComment('')); 
   return !!el.getElementsByTagName('*')[0];
 }()) {
-  simple['*'] = function(el) {
+  selector['*'] = function(el) {
     if (el.nodeType === 1) return true;
   };
 }
@@ -397,7 +398,10 @@ var zest = function(sel, con) {
   }
 };
 
-zest.selectors = simple;
+zest.selectors = selector;
+zest.attributes = attribute;
+zest.combinators = combinator;
+zest.rules = rules;
 
 // expose
 this.zest = zest;

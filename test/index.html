@@ -1,1 +1,45 @@
-<!doctype html><html> <!-- a mock page for testing, markup taken from my own weblog. -->  <head>    <title>Hello World</title>    <script>      (function(el) {        for (var i = el.length; i--;) document.createElement(el[i]);      })('article,section,header,footer,time,nav'.split(','));    </script>    <script src="./sizzle.js"></script>    <script src="./zest.js"></script>    <script src="./test.js"></script>  </head>  <body>    <header>      <h1 id="hi"><a href="#">A Page</a></h1>      <nav><ul>        <li><a href="#" rel="section">A Link</a></li>        <li><a href="#" rel="section">A Link</a></li>        <li><a href="#" rel="section">A Link</a></li>        <li><a href="#" rel="section">A Link</a></li>        <li><a href=#" rel="section">A Link</a></li>      </ul></nav>    </header>    <article class="a">      <header>        <h1><a href="#">A Post</a></h1>        <time datetime="x" pubdate>A Date</time>      </header>      <p>Some text.</p>      <footer><a href="#" title="Post">A Link</a></footer>    </article>    <footer>      <a href="#">A Link</a>      <form class="a" action="/" method="GET">        <input type="text" required>        <input type="submit" value="Submit">      </form>      <small><a href="#">©</a>        Copyright 2010-2011, Christopher Jeffrey      </small>      <a href="#">A Link</a>    </footer>  </body></html>
+<!doctype html>
+<html> <!-- a mock page for testing, markup taken from my own weblog. -->
+  <head>
+    <title>Hello World</title>
+    <script>
+      (function(el) {
+        for (var i = el.length; i--;) document.createElement(el[i]);
+      })('article,section,header,footer,time,nav'.split(','));
+    </script>
+    <script src="./sizzle.js"></script>
+    <script src="./zest.js"></script>
+    <script src="./test.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1 id="hi"><a href="#">A Page</a></h1>
+      <nav><ul>
+        <li><a href="#" rel="section">A Link</a></li>
+        <li><a href="#" rel="section">A Link</a></li>
+        <li><a href="#" rel="section">A Link</a></li>
+        <li><a href="#" rel="section">A Link</a></li>
+        <li><a href=#" rel="section">A Link</a></li>
+      </ul></nav>
+    </header>
+    <article class="a">
+      <header>
+        <h1><a href="#">A Post</a></h1>
+        <time datetime="x" pubdate>A Date</time>
+      </header>
+      <p>Some text.</p>
+      <footer><a href="#" title="Post">A Link</a></footer>
+    </article>
+    <footer>
+      <a href="#">A Link</a>
+      <form class="a" action="/" method="GET">
+        <input type="text" required>
+        <input type="submit" value="Submit">
+      </form>
+      <small><a href="#">©</a>
+        Copyright 2010-2011, Christopher Jeffrey
+      </small>
+      <a href="#">A Link</a>
+    </footer>
+  </body>
+</html>
