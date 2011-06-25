@@ -1,19 +1,9 @@
-// Zest - a css selectors engine
+// Zest - a css selector engine
 // (c) Copyright 2011, Christopher Jeffrey (MIT Licensed)
 (function() {
 var window = this, 
     doc = this.document, 
     context, cache = {};
-
-// ========== RULES ========== //
-// we scan and slice in reverse
-var rules = [
-  ['SIMPLE', /(?:\w+|\*)(?:[.#:][^\s]+|\[[^\]]+\])*$/], 
-  ['CHILD', /\s*>\s*$/],
-  ['ADJACENT', /\s*\+\s*$/],
-  ['GENERAL', /\s*~\s*$/],
-  ['DESCENDANT', /\s+$/]
-];
 
 // ========== HELPERS ========== //
 // dom traversal
@@ -31,15 +21,15 @@ var child = function(el) {
 };
 
 // parse `nth` expressions
-var nth = function(param) {
-  var $ = param
-    .replace('odd', '2n+1').replace('even', '2n+0')
-    .replace(/\s+/g, '').replace(/^\+?(\d+)$/, '0n+$1')
-    .replace(/^-(\d+)$/, '0n-$1')
-    .match(/^([+-])?(\d+)?n([+-])?(\d+)?$/);
+var nth = function($) {
+  $ = $.replace(/\s+/g, '');
+  if ($ === 'even') $ = '2n+0';
+  else if ($ === 'odd') $ = '2n+1';
+  else if (!~$.indexOf('n')) $ = '0n' + $;
+  $ = /^([+-])?(\d+)?n([+-])?(\d+)?$/.exec($);
   return { 
     group: $[1] === '-' ? -($[2] || 1) : +($[2] || 1), 
-    off: $[3] ? ($[3] === '-' ? -$[4] : +$[4]) : 0 
+    offset: $[4] ? ($[3] === '-' ? -$[4] : +$[4]) : 0 
   };
 };
 
@@ -48,7 +38,7 @@ var unquote = function(s, c) {
 };
 
 // ========== SIMPLE SELECTORS ========== //
-// note: for type and child selectorss, in order to 
+// note: for type and child selectors, in order to 
 // conform, the root element must never be considered.
 var selectors = {
   '*': function() {
@@ -61,7 +51,7 @@ var selectors = {
     };
   },
   'attr': function(key, op, val) {
-    var func = attributes[op];
+    var func = operators[op];
     return function(el) {
       var attr = el[key] != null ? el[key] : el.getAttribute(key);
       return attr != null && func(attr + '', val);
@@ -77,12 +67,12 @@ var selectors = {
     p = nth(p);
     return function(el) {
       if (el.parentNode === context) return;
-      var d, i = 0, rel = child(el.parentNode);
+      var diff, pos = 0, rel = child(el.parentNode);
       while (rel) {
-        i++;
+        pos++;
         if (rel === el) {
-          d = p.off - i;
-          return !p.group ? !d : !(d % p.group);
+          diff = pos - p.offset;
+          return !p.group ? !diff : !(diff % p.group);
         }
         rel = next(rel);
       }
@@ -105,8 +95,8 @@ var selectors = {
   ':empty': function(el) {
     return !el.firstChild;
   },
-  ':not': function(param) {
-    var test = parse(param);
+  ':not': function(sel) {
+    var test = compile(sel);
     return function(el) {
       return !test(el);
     };
@@ -131,13 +121,13 @@ var selectors = {
     p = nth(p);
     return function(el) {
       if (el.parentNode === context) return;
-      var type = el.nodeName, t;
-      var d, i = 0, rel = child(el.parentNode);
+      var type = el.nodeName;
+      var diff, pos = 0, rel = child(el.parentNode);
       while (rel) {
-        if (rel.nodeName === type) i++;
+        if (rel.nodeName === type) pos++;
         if (rel === el) { 
-          d = p.off - i;
-          return !p.group ? !d : !(d % p.group);
+          diff = pos - p.offset; 
+          return !p.group ? !diff : !(diff % p.group);
         }
         rel = next(rel);
       }
@@ -160,13 +150,13 @@ var selectors = {
     return !!el.disabled;
   },
   ':target': function(el) {
-    return el.id === window.location.hash.slice(1);
+    return el.id === window.location.hash.substring(1);
   }
 };
 
 // ========== ATTRIBUTE OPERATORS ========== //
 // dont use any regexes, these should be faster
-var attributes = {
+var operators = {
   '-': function() {
     return true;
   },
@@ -180,7 +170,7 @@ var attributes = {
     var i = attr.indexOf(val);
     if (i === -1) return;
     var f = attr[i - 1], l = attr[i + val.length];
-    return (f === ' ' && !l) || (l === ' ' && !f) || (!f && !l);
+    return (f === ' ' && !l) || (!f && l === ' ') || (!f && !l);
   },
   '|=': function(attr, val) {
     var i = attr.indexOf(val);
@@ -192,37 +182,37 @@ var attributes = {
     return attr.indexOf(val) === 0;
   },
   '$=': function(attr, val) {
-    return attr.length === (attr.indexOf(val) + val.length);
+    return (attr.indexOf(val) + val.length) === attr.length;
   }
 };
 
 // ========== COMBINATOR LOGIC ========== //
 var combinators = {
-  'CHILD': function(test) {
-    return function(el) { 
-      return test(el = el.parentNode) && el;
-    };
-  },
-  'ADJACENT': function(test) {
-    return function(el) { 
-      return test(el = prev(el)) && el;
-    };
-  },
-  'GENERAL': function(test) { 
-    return function(el) { 
-      while (el = prev(el)) {
-        if (test(el)) return el;
-      }
-    };
-  },
-  'DESCENDANT': function(test) { 
+  ' ': function(test) { 
     return function(el) { 
       while (el = el.parentNode) {
         if (test(el)) return el;
       }
     };
   },
-  'NONE': function(test) {
+  '>': function(test) {
+    return function(el) { 
+      return test(el = el.parentNode) && el;
+    };
+  },
+  '+': function(test) {
+    return function(el) { 
+      return test(el = prev(el)) && el;
+    };
+  },
+  '~': function(test) { 
+    return function(el) { 
+      while (el = prev(el)) {
+        if (test(el)) return el;
+      }
+    };
+  },
+  'noop': function(test) {
     return function(el) {
       return test(el) && el;
     };
@@ -230,8 +220,10 @@ var combinators = {
 };
 
 // ========== PARSING ========== //
-// parse selectors selectorss and return a `test`
+// parse simple selectors, return a `test`
 var parse = function(sel) {
+  var cap, param;
+  
   if (typeof sel !== 'string') {
     if (sel.length > 1) {
       var func = [], i = 0, l = sel.length;
@@ -246,48 +238,62 @@ var parse = function(sel) {
         return true; 
       };
     }
-    // just one - that means it's a type or universal
+    // optimization: shortcut
     return sel[0] === '*' ? selectors['*'] : selectors.type(sel[0]);
+    //sel = sel[0];
   }
   
-  var cap, param;
   switch (sel[0]) {
-    case '.': return selectors.attr('class', '~=', sel.slice(1));
-    case '#': return selectors.attr('id', '=', sel.slice(1));
+    case '.': return selectors.attr('class', '~=', sel.substring(1));
+    case '#': return selectors.attr('id', '=', sel.substring(1));
     case '[': cap = sel.match(/^\[([\w-]+)(?:([^\w]?=)([^\]]+))?\]/);
               return selectors.attr(cap[1], cap[2] || '-', unquote(cap[3]));
     case ':': cap = sel.match(/^(:[\w-]+)\(([^)]+)\)/);
               if (cap) sel = cap[1], param = unquote(cap[2]); 
               return param ? selectors[sel](param) : selectors[sel];
-    default:  return sel === '*' ? selectors['*'] : selectors.type(sel);
+    case '*': return selectors['*'];
+    default:  return selectors.type(sel);
   }
 };
 
-// tokenize the selectors, return a compiled array of `test` 
-// functions - this is faster than returning tokens
+// parse and compile the selector 
+// into a single filter function
+var rule = /\s*((?:\w+|\*)(?:[.#:][^\s]+|\[[^\]]+\])*)\s*$/, 
+    implicit = /(^|\s)(:|\[|\.|#)/g,
+    simple = /(?=[\[:.#])/;
+
 var compile = function(sel) {
-  var func = [], comb = combinators.NONE, 
-      name, i, rule, cap;
-  while (sel.length) { 
-    for (i = 0; rule = rules[i++];) {
-      if (cap = sel.match(rule[1])) { 
-        sel = sel.slice(0, -cap[0].length);
-        // faster than comparing strings
-        if (i === 1) { 
-          cap = cap[0].split(/(?=[\[:.#])/);
-          if (!name) name = cap[0];
-          func.push(comb(parse(cap)));
-        } else {
-          comb = combinators[rule[0]];
-          break;
-        }
-      }
+  var filter = [], 
+      comb = combinators.noop, 
+      qname, cap, op, len;
+  
+  // add implicit universal selectors
+  sel = sel.replace(implicit, '$1*$2');
+  
+  while (cap = rule.exec(sel)) {
+    len = sel.length - cap[0].length;
+    cap = cap[1].split(simple);
+    if (!qname) qname = cap[0];
+    filter.push(comb(parse(cap)));
+    if (len) {
+      op = sel[len - 1]; 
+      // the problem with the descendant combinator is
+      // it's just whitespace, we may have cut it off 
+      // entirely with the regex. if the combinator 
+      // doesn't exist, assume it was a whitespace.
+      comb = combinators[op] || combinators[op = ' '];
+      sel = sel.substring(0, op !== ' ' ? --len : len);
+    } else {
+      break;
     }
-    if (!cap) break;
   }
-  func = make(func);
-  func.first = name;
-  return func;
+  
+  // compile to a single function
+  filter = make(filter);
+  // optimize the first qname
+  filter.qname = qname;
+  
+  return filter;
 };
 
 var make = function(func) {
@@ -320,12 +326,9 @@ var exec = function(sel) {
   var i = 0, res = [], 
       test, scope, el;
   
-  // trim and add implicit universal selectorss
-  sel = sel.replace(/^\s+|\s+$/g, '')
-           .replace(/(^|\s)(:|\[|\.|#)/g, '$1*$2');
-  
+  //test = compile(sel); 
   test = cache[sel] || (cache[sel] = compile(sel));
-  scope = context.getElementsByTagName(test.first); 
+  scope = context.getElementsByTagName(test.qname); 
   while (el = scope[i++]) {
     if (test(el)) res.push(el);
   }
@@ -360,10 +363,10 @@ exec = (function() {
     return function(sel) {
       if (!~sel.indexOf(' ')) {
         if (sel[0] === '#' && /^#\w+$/.test(sel)) {
-          return [context.getElementById(sel.slice(1))];
+          return [context.getElementById(sel.substring(1))];
         }
         if (sel[0] === '.' && /^\.\w+$/.test(sel)) try {
-          return slice.call(context.getElementsByClassName(sel.slice(1)));
+          return slice.call(context.getElementsByClassName(sel.substring(1)));
         } catch(e) {}
         if (/^\w+$/.test(sel)) {
           return slice.call(context.getElementsByTagName(sel));
@@ -374,6 +377,7 @@ exec = (function() {
   }
 })();
 
+// IE includes comments with `*`
 if (function() {
   var el = doc.createElement('div');
   el.appendChild(doc.createComment('')); 
@@ -398,9 +402,8 @@ var zest = function(sel, con) {
 };
 
 zest.selectors = selectors;
-zest.attributes = attributes;
+zest.operators = operators;
 zest.combinators = combinators;
-zest.rules = rules;
 
 // expose
 this.zest = zest;

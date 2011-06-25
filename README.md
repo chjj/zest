@@ -16,45 +16,53 @@ and remaining fast. For context, when compared to the well-known Sizzle engine:
 Each selector run 1000 times on Google Chrome 12 beta (ms):
 
     benchmarking: `header > h1` 1000 times.
-    zest: 15
-    sizzle: 25
-    native: 12
+    zest: 13
+    sizzle: 24
+    native: 13
     benchmarking: `body > header > h1` 1000 times.
-    zest: 19
-    sizzle: 28
+    zest: 16
+    sizzle: 26
     native: 13
     benchmarking: `html a` 1000 times.
-    zest: 53
-    sizzle: 56
-    native: 13
-    benchmarking: `:first-child` 1000 times.
-    zest: 49
-    sizzle: 73
+    zest: 45
+    sizzle: 55
     native: 12
-    benchmarking: `:only-child` 1000 times.
-    zest: 52
-    sizzle: 73
+    benchmarking: `:first-child` 1000 times.
+    zest: 44
+    sizzle: 68
     native: 11
+    benchmarking: `:only-child` 1000 times.
+    zest: 49
+    sizzle: 66
+    native: 12
     benchmarking: `:not(a)` 1000 times.
-    zest: 46
+    zest: 51
     sizzle: 125
     native: 12
     benchmarking: `h1 + time:last-child` 1000 times.
-    zest: 18
-    sizzle: 35
+    zest: 15
+    sizzle: 32
     native: 13
     benchmarking: `h1 + time[datetime]:last-child` 1000 times.
-    zest: 43
+    zest: 21
     sizzle: 45
     native: 14
     benchmarking: `header > h1, :not(a)` 1000 times.
-    zest: 67
-    sizzle: 209
+    zest: 72
+    sizzle: 212
     native: 17
+    benchmarking: `a[rel~="section"]` 1000 times.
+    zest: 41
+    sizzle: 54
+    native: 11
+    benchmarking: `a, h1` 1000 times.
+    zest: 25
+    sizzle: 55
+    native: 11
     benchmarking: `:nth-child(2n+1)` 1000 times.
-    zest: 94
-    sizzle: 102
-    native: 14
+    zest: 82
+    sizzle: 97
+    native: 13
 
 __NOTE:__ If you want to run these benchmarks yourself make sure to turn off 
 Sizzle's (and Zest's) `document.querySelectorAll` delegation mechanism, 
@@ -113,12 +121,15 @@ zest.selectors[':name'] = function(param) {
 };
 ```
 
+__NOTE__: if you're pseudo-class does not take a parameter, there will be no 
+closure.
+
 #### Adding an attribute operator
 
 ``` js
 // `attr` is the attribute
 // `val` is the value to match
-zest.attributes['!='] = function(attr, val) {
+zest.operators['!='] = function(attr, val) {
   return attr !== val;
 };
 ```
@@ -131,7 +142,7 @@ the logic is upside-down. Zest interprets selectors from right to left.
 Here is an example how a parent combinator could be implemented:
 
 ``` js
-zest.combinators['parent'] = function(test) {
+zest.combinators['<'] = function(test) {
   return function(el) { // `el` is the current element
     el = el.firstChild;
     while (el) {
@@ -144,15 +155,17 @@ zest.combinators['parent'] = function(test) {
     }
   };
 };
-zest.rules.push(['parent', /\s*<\s*$/]);
 ```
 
 The `test` function tests whatever simple selectors it needs to look for, but 
 it isn't important what it does. The most important part is that you return 
 the relevant element once it's found.
 
-The way the rule regex works is also important. It needs to end with a `$`. 
-Just remember that zest will be scanning from the right using this regex.
+NOTE: Using alphanumeric characters as combinators will break the descendant 
+combinator.
+
+Don't do this: `header X h1`. With `X` being the combinator. 
+It creates ambiguity as to whether `X` is an qname or not.
 
 ## License
 

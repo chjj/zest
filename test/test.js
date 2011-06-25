@@ -90,6 +90,7 @@ var runTests = function() {
   assert.selector('h1 + time[datetime]');
   assert.selector('h1 + time[datetime]:last-child');
   assert.selector(':nth-child(2n+1)');
+  assert.selector(':nth-child(2n-1)');
   assert.selector(':nth-of-type(2n+1)');
   assert.selector(':lang(en)');
   
