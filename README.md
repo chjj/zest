@@ -68,6 +68,12 @@ __NOTE:__ If you want to run these benchmarks yourself make sure to turn off
 Sizzle's (and Zest's) `document.querySelectorAll` delegation mechanism, 
 otherwise you will be benchmarking against `document.querySelectorAll`.
 
+Zest will cache compiled selectors if it can't delegate to 
+`document.querySelectorAll`, `document.getElementById`, or 
+`document.getElementsByClassName` (depending). __The benchmark tests you see 
+above were performed with the caching mechanism disabled. If caching were 
+enabled, Zest would be faster than the native `document.querySelectorAll`.__
+
 ## Usage
 
 ``` js
@@ -77,18 +83,14 @@ zest('header > h1', document);
 
 ## Notes
 
-Zest will cache compiled selectors if it can't delegate to 
-`document.querySelectorAll`, `document.getElementById`, or 
-`document.getElementsByClassName` (depending). __(The benchmark tests you see 
-above were performed with the caching mechanism disabled. If caching were 
-enabled, Zest would be faster than the native `document.querySelectorAll`).__
+Zest currently includes support for ender.js, Prototype, and jQuery.
 
-__Unsupported Selectors:__ `nth-last-of-type`, `nth-last-child`, `:hover`, 
+__Unsupported Selectors:__ `:nth-last-of-type`, `:nth-last-child`, `:hover`, 
 `:link`, `:visited`, all pseudo elements, and namespaces.
 
 `:link`, `:visited`, and pseudo elements are unsupported for obvious reasons 
 (they don't work). `:hover` isn't supported because it examines a dynamic state, 
-you should be binding to events for this. The `nth-last-x` pseudo-classes are 
+you should be binding to events for this. The `:nth-last-x` pseudo-classes are 
 unsupported simply because I haven't gotten around to adding them. I don't 
 plan on adding namespace selector support currently, but it may be added 
 eventually.
