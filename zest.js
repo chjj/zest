@@ -1,9 +1,9 @@
 // Zest - a css selector engine
 // (c) Copyright 2011, Christopher Jeffrey (MIT Licensed)
 (function() {
-var window = this, 
-    doc = this.document, 
-    context, cache = {};
+var window = this
+  , doc = this.document
+  , context;
 
 // ========== HELPERS ========== //
 // dom traversal
@@ -16,7 +16,9 @@ var prev = function(el) {
   return el;
 };
 var child = function(el) {
-  if (el = el.firstChild) while (el.nodeType !== 1 && (el = el.nextSibling));
+  if (el = el.firstChild) {
+    while (el.nodeType !== 1 && (el = el.nextSibling));
+  }
   return el;
 };
 
@@ -27,9 +29,9 @@ var nth = function($) {
   else if ($ === 'odd') $ = '2n+1';
   else if (!~$.indexOf('n')) $ = '0n' + $;
   $ = /^([+-])?(\d+)?n([+-])?(\d+)?$/.exec($);
-  return { 
-    group: $[1] === '-' ? -($[2] || 1) : +($[2] || 1), 
-    offset: $[4] ? ($[3] === '-' ? -$[4] : +$[4]) : 0 
+  return {
+    group: $[1] === '-' ? -($[2] || 1) : +($[2] || 1),
+    offset: $[4] ? ($[3] === '-' ? -$[4] : +$[4]) : 0
   };
 };
 
@@ -38,16 +40,16 @@ var unquote = function(s, c) {
 };
 
 // ========== SIMPLE SELECTORS ========== //
-// note: for type and child selectors, in order to 
+// note: for type and child selectors, in order to
 // conform, the root element must never be considered.
 var selectors = {
   '*': function() {
     return true;
   },
   'type': function(type) {
-    type = type.toLowerCase(); 
+    type = type.toLowerCase();
     return function(el) {
-      return el.nodeName.toLowerCase() === type; 
+      return el.nodeName.toLowerCase() === type;
     };
   },
   'attr': function(key, op, val) {
@@ -67,7 +69,8 @@ var selectors = {
     p = nth(p);
     return function(el) {
       if (el.parentNode === context) return;
-      var diff, pos = 0, rel = child(el.parentNode);
+      var diff, pos = 0
+        , rel = child(el.parentNode);
       while (rel) {
         pos++;
         if (rel === el) {
@@ -121,12 +124,13 @@ var selectors = {
     p = nth(p);
     return function(el) {
       if (el.parentNode === context) return;
-      var type = el.nodeName;
-      var diff, pos = 0, rel = child(el.parentNode);
+      var type = el.nodeName
+        , diff, pos = 0
+        , rel = child(el.parentNode);
       while (rel) {
         if (rel.nodeName === type) pos++;
-        if (rel === el) { 
-          diff = pos - p.offset; 
+        if (rel === el) {
+          diff = pos - p.offset;
           return !p.group ? !diff : !(diff % p.group);
         }
         rel = next(rel);
@@ -134,7 +138,7 @@ var selectors = {
     };
   },
   ':only-of-type': function(el) {
-    return selectors[':first-of-type'](el) 
+    return selectors[':first-of-type'](el)
             && selectors[':last-of-type'](el);
   },
   ':checked': function(el) {
@@ -174,7 +178,7 @@ var operators = {
   },
   '|=': function(attr, val) {
     var i = attr.indexOf(val);
-    if (i === -1) return;
+    if (i !== 0) return;
     var l = attr[i + val.length];
     return l === '-' || !l;
   },
@@ -188,25 +192,25 @@ var operators = {
 
 // ========== COMBINATOR LOGIC ========== //
 var combinators = {
-  ' ': function(test) { 
-    return function(el) { 
+  ' ': function(test) {
+    return function(el) {
       while (el = el.parentNode) {
         if (test(el)) return el;
       }
     };
   },
   '>': function(test) {
-    return function(el) { 
+    return function(el) {
       return test(el = el.parentNode) && el;
     };
   },
   '+': function(test) {
-    return function(el) { 
+    return function(el) {
       return test(el = prev(el)) && el;
     };
   },
-  '~': function(test) { 
-    return function(el) { 
+  '~': function(test) {
+    return function(el) {
       while (el = prev(el)) {
         if (test(el)) return el;
       }
@@ -223,10 +227,12 @@ var combinators = {
 // parse simple selectors, return a `test`
 var parse = function(sel) {
   var cap, param;
-  
+
   if (typeof sel !== 'string') {
     if (sel.length > 1) {
-      var func = [], i = 0, l = sel.length;
+      var func = []
+        , i = 0
+        , l = sel.length;
       for (; i < l; i++) {
         func.push(parse(sel[i]));
       }
@@ -235,51 +241,50 @@ var parse = function(sel) {
         for (i = 0; i < l; i++) {
           if (!func[i](el)) return;
         }
-        return true; 
+        return true;
       };
     }
     // optimization: shortcut
     return sel[0] === '*' ? selectors['*'] : selectors.type(sel[0]);
-    //sel = sel[0];
   }
-  
+
   switch (sel[0]) {
     case '.': return selectors.attr('class', '~=', sel.substring(1));
     case '#': return selectors.attr('id', '=', sel.substring(1));
-    case '[': cap = sel.match(/^\[([\w-]+)(?:([^\w]?=)([^\]]+))?\]/);
+    case '[': cap = /^\[([\w-]+)(?:([^\w]?=)([^\]]+))?\]/.exec(sel);
               return selectors.attr(cap[1], cap[2] || '-', unquote(cap[3]));
-    case ':': cap = sel.match(/^(:[\w-]+)\(([^)]+)\)/);
-              if (cap) sel = cap[1], param = unquote(cap[2]); 
+    case ':': cap = /^(:[\w-]+)\(([^)]+)\)/.exec(sel);
+              if (cap) sel = cap[1], param = unquote(cap[2]);
               return param ? selectors[sel](param) : selectors[sel];
     case '*': return selectors['*'];
     default:  return selectors.type(sel);
   }
 };
 
-// parse and compile the selector 
+// parse and compile the selector
 // into a single filter function
-var rule = /\s*((?:\w+|\*)(?:[.#:][^\s]+|\[[^\]]+\])*)\s*$/, 
-    implicit = /(^|\s)(:|\[|\.|#)/g,
-    simple = /(?=[\[:.#])/;
+var rule = /\s*((?:\w+|\*)(?:[.#:][^\s]+|\[[^\]]+\])*)\s*$/
+  , implicit = /(^|\s)(:|\[|\.|#)/g
+  , simple = /(?=[\[:.#])/;
 
 var compile = function(sel) {
-  var filter = [], 
-      comb = combinators.noop, 
-      qname, cap, op, len;
-  
+  var filter = []
+    , comb = combinators.noop
+    , qname, cap, op, len;
+
   // add implicit universal selectors
   sel = sel.replace(implicit, '$1*$2');
-  
+
   while (cap = rule.exec(sel)) {
     len = sel.length - cap[0].length;
     cap = cap[1].split(simple);
     if (!qname) qname = cap[0];
     filter.push(comb(parse(cap)));
     if (len) {
-      op = sel[len - 1]; 
+      op = sel[len - 1];
       // the problem with the descendant combinator is
-      // it's just whitespace, we may have cut it off 
-      // entirely with the regex. if the combinator 
+      // it's just whitespace, we may have cut it off
+      // entirely with the regex. if the combinator
       // doesn't exist, assume it was a whitespace.
       comb = combinators[op] || combinators[op = ' '];
       sel = sel.substring(0, op !== ' ' ? --len : len);
@@ -287,12 +292,13 @@ var compile = function(sel) {
       break;
     }
   }
-  
+
   // compile to a single function
   filter = make(filter);
+
   // optimize the first qname
   filter.qname = qname;
-  
+
   return filter;
 };
 
@@ -322,13 +328,13 @@ var exec = function(sel) {
     }
     return res;
   }
-  
-  var i = 0, res = [], 
-      test, scope, el;
-  
-  //test = compile(sel); 
-  test = cache[sel] || (cache[sel] = compile(sel));
-  scope = context.getElementsByTagName(test.qname); 
+
+  var i = 0
+    , res = []
+    , test = compile(sel)
+    , scope = context.getElementsByTagName(test.qname)
+    , el;
+
   while (el = scope[i++]) {
     if (test(el)) res.push(el);
   }
@@ -337,13 +343,13 @@ var exec = function(sel) {
 
 // ========== COMPATIBILITY ========== //
 exec = (function() {
-  var wrapped = exec;
+  var _exec = exec;
   var slice = (function() {
     try {
       Array.prototype.slice.call(document.getElementsByTagName('*'));
       return Array.prototype.slice;
-    } catch(e) { 
-      e = null; 
+    } catch(e) {
+      e = null;
       return function() {
         var a = [], i = 0, l = this.length;
         for (; i < l; i++) a.push(this[i]);
@@ -356,7 +362,7 @@ exec = (function() {
       try {
         return slice.call(context.querySelectorAll(sel));
       } catch(e) {
-        return wrapped(sel);
+        return _exec(sel);
       }
     };
   } else {
@@ -372,7 +378,7 @@ exec = (function() {
           return slice.call(context.getElementsByTagName(sel));
         }
       }
-      return wrapped(sel);
+      return _exec(sel);
     };
   }
 })();
@@ -380,7 +386,7 @@ exec = (function() {
 // IE includes comments with `*`
 if (function() {
   var el = doc.createElement('div');
-  el.appendChild(doc.createComment('')); 
+  el.appendChild(doc.createComment(''));
   return !!el.getElementsByTagName('*')[0];
 }()) {
   selectors['*'] = function(el) {
@@ -404,6 +410,18 @@ var zest = function(sel, con) {
 zest.selectors = selectors;
 zest.operators = operators;
 zest.combinators = combinators;
+
+zest.compile = compile;
+zest.matches = function(el, sel) {
+  return !!compile(sel)(el);
+};
+zest.cache = function() {
+  var cache = {}, _compile = compile;
+  zest.compile = compile = function(sel) {
+    return cache[sel] || (cache[sel] = _compile(sel));
+  };
+};
+// zest.cache();
 
 // expose
 this.zest = zest;

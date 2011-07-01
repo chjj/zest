@@ -8,7 +8,7 @@
   var zest = this.zest;
   delete this.zest;
   $._select = function(str, con) {
-    if (/^\s*</.test(str)) { 
+    if (/^\s*</.test(str)) {
       var out = [], d = (con || document).createElement('div');
       d.innerHTML = str;
       d = d.firstChild;
@@ -27,7 +27,9 @@
     };
     return {
       find: function(sel) {
-        var res = [], i = this.length, r, k;
+        var res = []
+          , i = this.length
+          , r, k;
         while (i--) {
           r = zest(sel, this[i]), k = r.length;
           while (k--) {

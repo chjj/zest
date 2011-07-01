@@ -3,23 +3,27 @@
 
 // Using this, jQuery can be built with Zest as its selector engine.
 
-// The functions you see here were taken directly from Sizzle to ensure jQuery 
+// The functions you see here were taken directly from Sizzle to ensure jQuery
 // remains working properly.
 
-// To be honest, this is absolutely horrible: *none* of this should be the 
-// selector engine's job. These functions belong in jQuery core as they are 
-// ubiquitous and used everywhere internally. jQuery doesn't even use these 
-// methods for anything selector-related (it uses them for non-selector dom 
-// traversal), among other things. But alas, jQuery was only designed to work 
-// with sizzle and it undeniably assumes its use, so I had to grab a number of 
+// To be honest, this is absolutely horrible: *none* of this should be the
+// selector engine's job. These functions belong in jQuery core as they are
+// ubiquitous and used everywhere internally. jQuery doesn't even use these
+// methods for anything selector-related (it uses them for non-selector dom
+// traversal), among other things. But alas, jQuery was only designed to work
+// with sizzle and it undeniably assumes its use, so I had to grab a number of
 // sizzle methods to keep jQuery working correctly.
 (function() {
 var engine = window.zest;
 delete window.zest;
 
+engine.matchesSelector = engine.matches;
+
 engine.matches = function(sel, set) {
-  var res = engine(sel), 
-      l, i = set.length;
+  var res = engine(sel)
+    , i = set.length
+    , l;
+
   s: while (i--) {
     l = res.length;
     while (l--) if (res[l] === set[i]) continue s;
@@ -28,32 +32,28 @@ engine.matches = function(sel, set) {
   return set;
 };
 
-engine.matchesSelector = function(el, sel) {
-	return engine.matches(sel, [el]).length > 0;
-};
-
 /*!
  * TAKEN FROM: Sizzle CSS Selector Engine
  *  Copyright 2011, The Dojo Foundation
  *  Released under the MIT, BSD, and GPL Licenses.
  *  More information: http://sizzlejs.com/
  */
- 
+
 // MIT License
 // ----
-// 
+//
 // Copyright (c) 2009 John Resig
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -82,7 +82,7 @@ engine.getText = function( elems ) {
   return ret;
 };
 
-var hasDuplicate = false,
+var hasDuplicate = false, 
     baseHasDuplicate = true;
 
 [0, 0].sort(function() {
@@ -111,11 +111,11 @@ if ( document.documentElement.compareDocumentPosition ) {
       return a.sourceIndex - b.sourceIndex;
     }
 
-    var al, bl,
-      ap = [],
-      bp = [],
-      aup = a.parentNode,
-      bup = b.parentNode,
+    var al, bl, 
+      ap = [], 
+      bp = [], 
+      aup = a.parentNode, 
+      bup = b.parentNode, 
       cur = aup;
 
     if ( aup === bup ) {
@@ -189,17 +189,17 @@ engine.uniqueSort = function( results ) {
 };
 
 if ( document.documentElement.contains ) {
-	engine.contains = function( a, b ) {
-		return a !== b && (a.contains ? a.contains(b) : true);
-	};
+  engine.contains = function( a, b ) {
+    return a !== b && (a.contains ? a.contains(b) : true);
+  };
 } else if ( document.documentElement.compareDocumentPosition ) {
-	engine.contains = function( a, b ) {
-		return !!(a.compareDocumentPosition(b) & 16);
-	};
+  engine.contains = function( a, b ) {
+    return !!(a.compareDocumentPosition(b) & 16);
+  };
 } else {
-	engine.contains = function() {
-		return false;
-	};
+  engine.contains = function() {
+    return false;
+  };
 }
 
 // EXPOSE

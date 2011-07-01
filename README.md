@@ -8,12 +8,12 @@ a bit more.
 Zest was designed to be very concise while still supporting CSS3 selectors 
 and remaining fast. For context, when compared to the well-known Sizzle engine: 
 
-- Zest - around 400 lines, and ~170 semicolons.
+- Zest - ~400 lines, and ~190 semicolons.
 - Sizzle - 1413 lines and 413 semicolons.
 
 ## Benchmarks
 
-Each selector run 1000 times on Google Chrome 12 beta (ms):
+Each selector run 1000 times on Google Chrome 13 beta (ms):
 
     benchmarking: `header > h1` 1000 times.
     zest: 13
@@ -126,7 +126,7 @@ zest.selectors[':name'] = function(param) {
 __NOTE__: if you're pseudo-class does not take a parameter, there will be no 
 closure.
 
-#### Adding an attribute operator
+### Adding an attribute operator
 
 ``` js
 // `attr` is the attribute

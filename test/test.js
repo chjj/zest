@@ -8,8 +8,8 @@ var slice = (function() {
     return function(obj) {
       return Array.prototype.slice.call(obj);
     };
-  } catch(e) { 
-    e = null; 
+  } catch(e) {
+    e = null;
     return function(obj) {
       var a = [], i = 0, l = obj.length;
       for (; i < l; i++) a.push(obj[i]);
@@ -21,27 +21,22 @@ var slice = (function() {
 this.assert = this.assert || {
   error: function(err) {
     //throw new Error(err);
-    console.error('ASSERTION ERROR:', err);
+    console.error(err);
   }
 };
 
 assert.selector = function(sel) {
   try {
-    var got = zest(sel),
-        //expected = Sizzle(sel); 
-        expected = slice(document.querySelectorAll(sel));
+    var got = zest(sel)
+    //, expected = Sizzle(sel)
+      , expected = slice(document.querySelectorAll(sel));
   } catch(e) {
     return true;
   }
-  var i = got.length, k,
-    finalgot = got.slice(), 
-    finalexpect = expected.slice();
-  var filter = function(key, val) {
-    if (val && val.tagName) {
-      return val.tagName;
-    }
-    return val;
-  };
+  var i = got.length, k
+    , finalgot = got.slice()
+    , finalexpect = expected.slice();
+
   while (i--) {
     k = expected.length;
     while (k--) {
@@ -52,17 +47,25 @@ assert.selector = function(sel) {
       }
     }
   }
+
   if (finalgot.length || finalexpect.length) {
     var obj = {
-      finalgot: finalgot, finalexpected: finalexpect, 
+      finalgot: finalgot, finalexpected: finalexpect,
       originalgot: got, originalexpect: expected
     };
-    console.log(IE ? JSON.stringify(obj, filter, 2) : obj);
+    console.log(IE ? JSON.stringify(obj, function(key, val) {
+      if (val && val.tagName) {
+        return val.tagName;
+      }
+      return val;
+    }, 2) : obj);
     assert.error(
-      'Assertion Error: `' + sel + '` - ' 
+      'Assertion Error: `' + sel + '` - '
       + 'DIFF: ' + (Math.abs(finalgot.length - finalexpect.length))
     );
+    return;
   }
+
   console.log('passed: ' + sel);
 };
 
@@ -73,7 +76,7 @@ var runTests = function() {
   assert.selector('article > header');
   assert.selector('header + p');
   assert.selector('header ~ footer');
-  assert.selector(':root'); 
+  assert.selector(':root');
   assert.selector(':first-child');
   assert.selector(':last-child');
   assert.selector('header > :first-child');
@@ -93,31 +96,31 @@ var runTests = function() {
   assert.selector(':nth-child(2n-1)');
   assert.selector(':nth-of-type(2n+1)');
   assert.selector(':lang(en)');
-  
+
   // this test wont pass because when it comes to groupings
   // zest doesn't get the order of the elements exactly perfect
   //assert.selector('a, h1');
 };
 
 var bench = function(sel, times) {
-  // ie's js engine is roughly 5-10x 
+  // ie's js engine is roughly 5-10x
   // slower than any others (10x slower than v8)
   times = times || IE ? 100 : 1000;
-  
+
   console.log('benchmarking: ' + '`' + sel + '` ' + times + ' times.');
-  
+
   (function() {
     var start = (new Date().getTime());
     for (var i = times; i--;) zest(sel);
     console.log('zest:', (new Date().getTime()) - start);
   })();
-  
+
   (function() {
     var start = (new Date().getTime());
     for (var i = times; i--;) Sizzle(sel);
     console.log('sizzle:', (new Date().getTime()) - start);
   })();
-  
+
   try {
     (function() {
       var start = (new Date().getTime());
@@ -129,19 +132,19 @@ var bench = function(sel, times) {
   }
 };
 
-setTimeout(function() { 
-  runTests(); 
-  bench('header > h1'); 
-  bench('body > header > h1'); 
-  bench('html a'); 
-  bench(':first-child'); 
-  bench(':only-child'); 
+setTimeout(function() {
+  runTests();
+  bench('header > h1');
+  bench('body > header > h1');
+  bench('html a');
+  bench(':first-child');
+  bench(':only-child');
   bench(':not(a)');
   bench('h1 + time:last-child');
   bench('h1 + time[datetime]:last-child');
-  bench('header > h1, :not(a)'); 
-  bench('a[rel~="section"]'); 
-  bench('a, h1'); 
+  bench('header > h1, :not(a)');
+  bench('a[rel~="section"]');
+  bench('a, h1');
   bench(':nth-child(2n+1)');
 }, 100);
 }).call(this);
