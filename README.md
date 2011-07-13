@@ -5,10 +5,11 @@ concept for certain non-standard selectors I was interested in, but once I
 noticed how fast it was before I had even optimized it, I decided to develop it 
 a bit more.
 
-Zest was designed to be very concise while still supporting CSS3 selectors 
-and remaining fast. For context, when compared to the well-known Sizzle engine: 
+Zest was designed to be very concise while still supporting CSS3/CSS4 
+selectors and remaining fast. For context, when compared to the well-known 
+Sizzle engine: 
 
-- Zest - ~400 lines, and ~190 semicolons.
+- Zest - 400-500 lines, and ~200 semicolons.
 - Sizzle - 1413 lines and 413 semicolons.
 
 ## Benchmarks
@@ -85,18 +86,25 @@ zest('header > h1', document);
 
 Zest currently includes support for ender.js, Prototype, and jQuery.
 
-__Unsupported Selectors:__ `:nth-last-of-type`, `:nth-last-child`, `:hover`, 
-`:link`, `:visited`, all pseudo elements, and namespaces.
+__Unsupported Selectors:__ `:nth-last-of-type`, `:nth-last-child`, 
+`:nth-last-match`, `:hover`, `:link`, `:visited`, all pseudo elements, 
+and namespaces.
 
 `:link`, `:visited`, and pseudo elements are unsupported for obvious reasons 
 (they don't work). `:hover` isn't supported because it examines a dynamic state, 
-you should be binding to events for this. The `:nth-last-x` pseudo-classes are 
-unsupported simply because I haven't gotten around to adding them. I don't 
-plan on adding namespace selector support currently, but it may be added 
-eventually.
+you should be binding to events for this (`:focus` is supported, but there is 
+no fallback for legacy browsers). The `:nth-last-x` pseudo-classes are 
+unsupported simply because I haven't gotten around to adding them, and because 
+they add a lot of seemingly unnecessary code. I don't plan on adding namespace 
+selector support currently, but it may be added eventually.
 
-This selector engine is very new (quite literally written in a night or two), 
-if there are any bugs please submit them to the issue tracker. 
+Zest tries to include support for selectors level 4, but the spec is really up 
+in the air right now. Currently, `:scope`, `:links-here`, `:matches`, and 
+`:nth-match` are all supported. Support for the subject selector prefix will 
+be added when the spec becomes more stable.
+
+This selector engine is still relatively new, if there are any bugs please 
+submit them to the issue tracker. 
 
 ## Extension
 

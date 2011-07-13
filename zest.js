@@ -2,46 +2,79 @@
 // (c) Copyright 2011, Christopher Jeffrey (MIT Licensed)
 (function() {
 var window = this
-  , doc = this.document
-  , context;
+  , document = this.document;
 
-// ========== HELPERS ========== //
-// dom traversal
+// # helpers
 var next = function(el) {
-  while ((el = el.nextSibling) && el.nodeType !== 1);
+  while ((el = el.nextSibling) 
+         && el.nodeType !== 1);
   return el;
 };
+
 var prev = function(el) {
-  while ((el = el.previousSibling) && el.nodeType !== 1);
+  while ((el = el.previousSibling) 
+         && el.nodeType !== 1);
   return el;
 };
+
 var child = function(el) {
   if (el = el.firstChild) {
-    while (el.nodeType !== 1 && (el = el.nextSibling));
+    while (el.nodeType !== 1 
+           && (el = el.nextSibling));
   }
   return el;
 };
 
-// parse `nth` expressions
-var nth = function($) {
-  $ = $.replace(/\s+/g, '');
+// faster than a regex
+var unquote_ = function(s, c) {
+  return (c = s && s[0]) && (c === '"' || c === '\'') ? s.slice(1, -1) : s;
+};
+
+var unquote = function(str) {
+  if (!str) return;
+  var ch = str[0];
+  return (ch === '"' || ch === '\'') 
+          ? str.slice(1, -1) : str;
+};
+
+// handle `nth` selectors
+var nth = function(param, test) {
+  var $ = param.replace(/\s+/g, '')
+    , group
+    , offset;
+
   if ($ === 'even') $ = '2n+0';
   else if ($ === 'odd') $ = '2n+1';
   else if (!~$.indexOf('n')) $ = '0n' + $;
   $ = /^([+-])?(\d+)?n([+-])?(\d+)?$/.exec($);
-  return {
-    group: $[1] === '-' ? -($[2] || 1) : +($[2] || 1),
-    offset: $[4] ? ($[3] === '-' ? -$[4] : +$[4]) : 0
+
+  group = $[1] === '-' ? -($[2] || 1) : +($[2] || 1);
+  offset = $[4] ? ($[3] === '-' ? -$[4] : +$[4]) : 0;
+  param = $ = null;
+
+  return function(el) {
+    if (el.parentNode.nodeType === 9) return;
+
+    var diff
+      , pos = 0
+      , rel = child(el.parentNode);
+
+    while (rel) {
+      if (test(rel, el)) pos++;
+      if (rel === el) {
+        diff = pos - offset;
+        return !group ? !diff : !(diff % group);
+      }
+      rel = next(rel);
+    }
   };
 };
 
-var unquote = function(s, c) {
-  return (c = s && s[0]) && (c === '"' || c === '\'') ? s.slice(1, -1) : s;
-};
-
-// ========== SIMPLE SELECTORS ========== //
+// # simple selectors
 // note: for type and child selectors, in order to
 // conform, the root element must never be considered.
+// most selector engines don't acknowledge this at all
+// and as a result, get a speed benefit.
 var selectors = {
   '*': function() {
     return true;
@@ -53,47 +86,45 @@ var selectors = {
     };
   },
   'attr': function(key, op, val) {
-    var func = operators[op];
+    op = operators[op];
     return function(el) {
-      var attr = el[key] != null ? el[key] : el.getAttribute(key);
-      return attr != null && func(attr + '', val);
+      var attr;
+      switch (key) {
+        case 'for':
+          attr = el.htmlFor;
+          break;
+        case 'class':
+          attr = el.className;
+          break;
+        case 'href':
+          attr = el.getAttribute('href', 2);
+          break;
+        default:
+          attr = el[key] != null 
+               ? el[key] 
+               : el.getAttribute(key);
+          break;
+      }
+      return attr != null && op(attr + '', val);
     };
   },
   ':first-child': function(el) {
-    return !prev(el) && el.parentNode !== context;
+    return !prev(el) && el.parentNode.nodeType !== 9;
   },
   ':last-child': function(el) {
-    return !next(el) && el.parentNode !== context;
-  },
-  ':nth-child': function(p) {
-    p = nth(p);
-    return function(el) {
-      if (el.parentNode === context) return;
-      var diff, pos = 0
-        , rel = child(el.parentNode);
-      while (rel) {
-        pos++;
-        if (rel === el) {
-          diff = pos - p.offset;
-          return !p.group ? !diff : !(diff % p.group);
-        }
-        rel = next(rel);
-      }
-    };
+    return !next(el) && el.parentNode.nodeType !== 9;
   },
   ':only-child': function(el) {
-    return (!prev(el) && !next(el)) && el.parentNode !== context;
+    return (!prev(el) && !next(el)) 
+            && el.parentNode.nodeType !== 9;
   },
-  ':root': function(el) {
+  ':nth-child': function(param) {
+    return nth(param, function() {
+      return true;
+    });
+  },
+  ':root': function(el) { 
     return el.ownerDocument.documentElement === el;
-  },
-  ':lang': function(param) {
-    return function(el) {
-      while (el) {
-        if (el.lang) return el.lang.indexOf(param) === 0;
-        el = el.parentNode;
-      }
-    };
   },
   ':empty': function(el) {
     return !el.firstChild;
@@ -105,7 +136,7 @@ var selectors = {
     };
   },
   ':first-of-type': function(el) {
-    if (el.parentNode === context) return;
+    if (el.parentNode.nodeType === 9) return;
     var type = el.nodeName;
     while (el = prev(el)) {
       if (el.nodeName === type) return;
@@ -113,33 +144,21 @@ var selectors = {
     return true;
   },
   ':last-of-type': function(el) {
-    if (el.parentNode === context) return;
+    if (el.parentNode.nodeType === 9) return;
     var type = el.nodeName;
     while (el = next(el)) {
       if (el.nodeName === type) return;
     }
     return true;
   },
-  ':nth-of-type': function(p) {
-    p = nth(p);
-    return function(el) {
-      if (el.parentNode === context) return;
-      var type = el.nodeName
-        , diff, pos = 0
-        , rel = child(el.parentNode);
-      while (rel) {
-        if (rel.nodeName === type) pos++;
-        if (rel === el) {
-          diff = pos - p.offset;
-          return !p.group ? !diff : !(diff % p.group);
-        }
-        rel = next(rel);
-      }
-    };
-  },
   ':only-of-type': function(el) {
     return selectors[':first-of-type'](el)
             && selectors[':last-of-type'](el);
+  },
+  ':nth-of-type': function(param) {
+    return nth(param, function(rel, el) {
+      return rel.nodeName === el.nodeName;
+    });
   },
   ':checked': function(el) {
     return !!(el.checked || el.selected);
@@ -155,11 +174,54 @@ var selectors = {
   },
   ':target': function(el) {
     return el.id === window.location.hash.substring(1);
+  },
+  ':focus': function(el) {
+    // this has no legacy fallback
+    return el === el.ownerDocument.activeElement;
+  },
+  ':matches': function(sel) {
+    var test = compile(sel);
+    return function(el) {
+      return test(el);
+    };
+  },
+  ':nth-match': function(param) {
+    var args = param.split(/\s*,\s*/)
+      , p = args.pop()
+      , test = compile(args.join(','));
+
+    return nth(p, test);
+  },
+  ':links-here': function(el) { 
+    return el + '' === window.location + '';
+  },
+  // currently, i'm considering removing 
+  // the selectors below. they don't 
+  // seem especially useful when 
+  // inside the DOM.
+  ':lang': function(param) { 
+    return function(el) {
+      while (el) {
+        if (el.lang) return el.lang.indexOf(param) === 0;
+        el = el.parentNode;
+      }
+    };
+  },
+  ':dir': function(param) { 
+    return function(el) {
+      while (el) {
+        if (el.dir) return el.dir === param;
+        el = el.parentNode;
+      }
+    };
+  },
+  ':scope': function(el) { 
+    return el === (context || document.documentElement);
   }
 };
 
-// ========== ATTRIBUTE OPERATORS ========== //
-// dont use any regexes, these should be faster
+// # attribute operators
+// these should be faster than regexes
 var operators = {
   '-': function() {
     return true;
@@ -173,7 +235,8 @@ var operators = {
   '~=': function(attr, val) {
     var i = attr.indexOf(val);
     if (i === -1) return;
-    var f = attr[i - 1], l = attr[i + val.length];
+    var f = attr[i - 1]
+      , l = attr[i + val.length];
     return (f === ' ' && !l) || (!f && l === ' ') || (!f && !l);
   },
   '|=': function(attr, val) {
@@ -190,7 +253,7 @@ var operators = {
   }
 };
 
-// ========== COMBINATOR LOGIC ========== //
+// # combinator logic
 var combinators = {
   ' ': function(test) {
     return function(el) {
@@ -223,7 +286,7 @@ var combinators = {
   }
 };
 
-// ========== PARSING ========== //
+// # parsing
 // parse simple selectors, return a `test`
 var parse = function(sel) {
   var cap, param;
@@ -233,9 +296,11 @@ var parse = function(sel) {
       var func = []
         , i = 0
         , l = sel.length;
+
       for (; i < l; i++) {
         func.push(parse(sel[i]));
       }
+
       l = func.length;
       return function(el) {
         for (i = 0; i < l; i++) {
@@ -245,7 +310,9 @@ var parse = function(sel) {
       };
     }
     // optimization: shortcut
-    return sel[0] === '*' ? selectors['*'] : selectors.type(sel[0]);
+    return sel[0] === '*' 
+      ? selectors['*'] 
+      : selectors.type(sel[0]);
   }
 
   switch (sel[0]) {
@@ -263,21 +330,20 @@ var parse = function(sel) {
 
 // parse and compile the selector
 // into a single filter function
-var rule = /\s*((?:\w+|\*)(?:[.#:][^\s]+|\[[^\]]+\])*)\s*$/
-  , implicit = /(^|\s)(:|\[|\.|#)/g
-  , simple = /(?=[\[:.#])/;
-
 var compile = function(sel) {
   var filter = []
     , comb = combinators.noop
-    , qname, cap, op, len;
+    , qname
+    , cap
+    , op
+    , len;
 
   // add implicit universal selectors
-  sel = sel.replace(implicit, '$1*$2');
+  sel = sel.replace(/(^|\s)(:|\[|\.|#)/g, '$1*$2');
 
-  while (cap = rule.exec(sel)) {
+  while (cap = /\s*((?:\w+|\*)(?:[.#:][^\s]+|\[[^\]]+\])*)\s*$/.exec(sel)) {
     len = sel.length - cap[0].length;
-    cap = cap[1].split(simple);
+    cap = cap[1].split(/(?=[\[:.#])/);
     if (!qname) qname = cap[0];
     filter.push(comb(parse(cap)));
     if (len) {
@@ -312,16 +378,21 @@ var make = function(func) {
   };
 };
 
-// ========== EXECUTION ========== //
-var exec = function(sel) {
+// # selection
+var select = function(sel, context) {
   // split up groups
   if (~sel.indexOf(',')) {
-    var res = [];
     sel = sel.split(/,\s*(?![^\[]*["'])/);
-    for (var s = 0, sl = sel.length; s < sl; s++) {
-      var cur = exec(sel[s], context);
-      for (var c = 0, cl = cur.length; c < cl; c++) {
-        var item = cur[c], rl = res.length;
+    var res = []
+      , s = 0
+      , sl = sel.length;
+    for (; s < sl; s++) {
+      var cur = select(sel[s], context)
+        , c = 0
+        , cl = cur.length;
+      for (; c < cl; c++) {
+        var item = cur[c]
+          , rl = res.length;
         while (rl-- && res[rl] !== item);
         if (rl === -1) res.push(item);
       }
@@ -341,9 +412,9 @@ var exec = function(sel) {
   return res;
 };
 
-// ========== COMPATIBILITY ========== //
-exec = (function() {
-  var _exec = exec;
+// # compatibility
+select = (function() {
+  var _select = select;
   var slice = (function() {
     try {
       Array.prototype.slice.call(document.getElementsByTagName('*'));
@@ -357,16 +428,16 @@ exec = (function() {
       };
     }
   })();
-  if (doc.querySelectorAll) {
-    return function(sel) {
+  if (document.querySelectorAll) {
+    return function(sel, context) {
       try {
         return slice.call(context.querySelectorAll(sel));
       } catch(e) {
-        return _exec(sel);
+        return _select(sel, context);
       }
     };
   } else {
-    return function(sel) {
+    return function(sel, context) {
       if (!~sel.indexOf(' ')) {
         if (sel[0] === '#' && /^#\w+$/.test(sel)) {
           return [context.getElementById(sel.substring(1))];
@@ -378,15 +449,15 @@ exec = (function() {
           return slice.call(context.getElementsByTagName(sel));
         }
       }
-      return _exec(sel);
+      return _select(sel, context);
     };
   }
 })();
 
 // IE includes comments with `*`
 if (function() {
-  var el = doc.createElement('div');
-  el.appendChild(doc.createComment(''));
+  var el = document.createElement('div');
+  el.appendChild(document.createComment(''));
   return !!el.getElementsByTagName('*')[0];
 }()) {
   selectors['*'] = function(el) {
@@ -394,11 +465,10 @@ if (function() {
   };
 }
 
-// ========== ZEST ========== //
-var zest = function(sel, con) {
-  context = con || doc;
+// # zest
+var zest = function(sel, context) {
   try {
-    return exec(sel);
+    return select(sel, context || document);
   } catch(e) {
     if (typeof console !== 'undefined') {
       console.log(e.stack || e + '');
@@ -407,6 +477,7 @@ var zest = function(sel, con) {
   }
 };
 
+// # expose
 zest.selectors = selectors;
 zest.operators = operators;
 zest.combinators = combinators;
@@ -421,9 +492,7 @@ zest.cache = function() {
     return cache[sel] || (cache[sel] = _compile(sel));
   };
 };
-// zest.cache();
 
-// expose
-this.zest = zest;
+window.zest = zest;
 
 }).call(this);

@@ -5,35 +5,53 @@
 // these functions seem like they should belong in a dom library,
 // not as part of the selector engine binding.
 (function() {
-  var zest = this.zest;
+  var window = this
+    , document = this.document
+    , zest = this.zest;
+
+  // remove zest
   delete this.zest;
-  $._select = function(str, con) {
+
+  $._select = function(str, context) {
+    context = context || document;
     if (/^\s*</.test(str)) {
-      var out = [], d = (con || document).createElement('div');
-      d.innerHTML = str;
-      d = d.firstChild;
-      while (d) {
-        if (d.nodeType === 1) out.push(d);
-        d = d.nextSibling;
+      context = context.nodeType === 9 
+              ? context : context.ownerDocument;
+
+      var out = []
+        , el = context.createElement('div');
+
+      el.innerHTML = str;
+      el = el.firstChild;
+      while (el) {
+        if (el.nodeType === 1) out.push(el);
+        el = el.nextSibling;
       }
+
       return out;
     }
-    return zest(str, con);
+    return zest(str, context);
   };
+
   $.ender(function() {
-    var includes = function(obj, el) {
+    var has = function(obj, el) {
       var i = obj.length;
-      while (i--) if (obj[i] === el) return true;
+      while (i--) {
+        if (obj[i] === el) return true;
+      }
     };
     return {
       find: function(sel) {
         var res = []
           , i = this.length
-          , r, k;
+          , r
+          , k;
+
         while (i--) {
-          r = zest(sel, this[i]), k = r.length;
+          r = zest(sel, this[i]);
+          k = r.length;
           while (k--) {
-            if (!includes(res, r[k])) res.push(r[k]);
+            if (!has(res, r[k])) res.push(r[k]);
           }
         }
         return $(res);
