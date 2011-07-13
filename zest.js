@@ -26,15 +26,8 @@ var child = function(el) {
 };
 
 // faster than a regex
-var unquote_ = function(s, c) {
+var unquote = function(s, c) {
   return (c = s && s[0]) && (c === '"' || c === '\'') ? s.slice(1, -1) : s;
-};
-
-var unquote = function(str) {
-  if (!str) return;
-  var ch = str[0];
-  return (ch === '"' || ch === '\'') 
-          ? str.slice(1, -1) : str;
 };
 
 // handle `nth` selectors
