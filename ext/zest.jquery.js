@@ -1,5 +1,7 @@
-// Zest support for jQuery
-// https://github.com/jquery/jquery
+/**
+ * Zest support for jQuery
+ * https://github.com/jquery/jquery
+ */
 
 // Using this, jQuery can be built with Zest as its selector engine.
 

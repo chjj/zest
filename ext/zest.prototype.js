@@ -1,5 +1,7 @@
-// Zest support for Prototype
-// https://github.com/sstephenson/prototype
+/**
+ * Zest support for Prototype
+ * https://github.com/sstephenson/prototype
+ */
 
 Prototype._original_property = window.zest;
 

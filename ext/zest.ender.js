@@ -1,5 +1,7 @@
-// Zest support for ender.js
-// https://github.com/ender-js/Ender
+/**
+ * Zest support for ender.js
+ * https://github.com/ender-js/Ender
+ */
 
 // i try not to change the expected functionality here, however,
 // these functions seem like they should belong in a dom library,

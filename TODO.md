@@ -1,4 +1,4 @@
-# todo
+# Todo
 
 Things to be implemented soon...
 
@@ -6,7 +6,6 @@ Allow compiling of groups:
 
 ``` js
 compile.group = function(sel) {
-  // split up groups
   if (~sel.indexOf(',')) {
     sel = sel.split(/,\s*(?![^\[]*["'])/);
 
@@ -29,8 +28,10 @@ compile.group = function(sel) {
 };
 ```
 
-Add subject functionality css4-style not implemented yet due to it being 
-so up in the air (the operator has changed once already).
+Add css4 subject functionality.
+
+Not implemented yet due to it being so up in the air 
+(the operator has changed once already).
 
 ``` js
 var subject;
@@ -56,8 +57,12 @@ switch (sel[0]) {
 
 // select:
 if (subject) {
+  var last;
   while (el = scope[i++]) {
-    if (test(el)) res.push(subject);
+    if (test(el) && subject !== last) {
+      res.push(subject);
+      last = subject;
+    }
   }
   subject = null;
 } else {

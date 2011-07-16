@@ -6,7 +6,9 @@
 
 (function() {
 var window = this
-  , document = this.document;
+  , document = this.document
+  , context
+  , subject;
 
 /**
  * Helpers
@@ -32,11 +34,8 @@ var child = function(el) {
   return el;
 };
 
-var unquote = function(str) {
-  if (!str) return str;
-  var ch = str[0];
-  return (ch === '"' || ch === '\'') 
-          ? str.slice(1, -1) : str;
+var unquote = function(s, c) {
+  return (c = s && s[0]) && (c === '"' || c === '\'') ? s.slice(1, -1) : s;
 };
 
 /**
@@ -51,14 +50,14 @@ var nth = function(param, test) {
   if ($ === 'even') $ = '2n+0';
   else if ($ === 'odd') $ = '2n+1';
   else if (!~$.indexOf('n')) $ = '0n' + $;
-
   $ = /^([+-])?(\d+)?n([+-])?(\d+)?$/.exec($);
+
   group = $[1] === '-' ? -($[2] || 1) : +($[2] || 1);
   offset = $[4] ? ($[3] === '-' ? -$[4] : +$[4]) : 0;
   param = $ = null;
 
   return function(el) {
-    if (el.parentNode.nodeType !== 1) return;
+    if (el.parentNode.nodeType === 9) return;
 
     var diff
       , pos = 0
@@ -180,10 +179,11 @@ var selectors = {
     return el.id === window.location.hash.substring(1);
   },
   ':focus': function(el) {
+    // this has no legacy fallback
     return el === el.ownerDocument.activeElement;
   },
   ':matches': function(sel) {
-    var test = compile(sel);
+    var test = compile.group(sel);
     return function(el) {
       return test(el);
     };
@@ -191,12 +191,34 @@ var selectors = {
   ':nth-match': function(param) {
     var args = param.split(/\s*,\s*/)
       , p = args.pop()
-      , test = compile(args.join(','));
+      , test = compile.group(args.join(','));
 
     return nth(p, test);
   },
   ':links-here': function(el) { 
     return el + '' === window.location + '';
+  },
+  ':lang': function(param) { 
+    return function(el) {
+      while (el) {
+        if (el.lang) return el.lang.indexOf(param) === 0;
+        el = el.parentNode;
+      }
+    };
+  },
+  ':dir': function(param) { 
+    return function(el) {
+      while (el) {
+        if (el.dir) return el.dir === param;
+        el = el.parentNode;
+      }
+    };
+  },
+  ':scope': function(el) {
+    if (context.nodeType === 9) {
+      return el === context.documentElement;
+    }
+    return el === context;
   }
 };
 
@@ -204,6 +226,7 @@ var selectors = {
  * Attribute Operators
  */
 
+// these should be faster than regexes
 var operators = {
   '-': function() {
     return true;
@@ -297,13 +320,19 @@ var parse = function(sel) {
         return true;
       };
     }
-    // optimization: shortcut
-    return sel[0] === '*' 
-      ? selectors['*'] 
-      : selectors.type(sel[0]);
+    sel = sel[0];
   }
 
   switch (sel[0]) {
+    case '$': {
+      var test = parse(sel.substring(1));
+      sel = null;
+      subject = true;
+      return function(el) {
+        subject = el;
+        return test(el);
+      };
+    }
     case '.': return selectors.attr('class', '~=', sel.substring(1));
     case '#': return selectors.attr('id', '=', sel.substring(1));
     case '[': cap = /^\[([\w-]+)(?:([^\w]?=)([^\]]+))?\]/.exec(sel);
@@ -327,17 +356,19 @@ var compile = function(sel) {
     , len;
 
   // add implicit universal selectors
-  sel = sel.replace(/(^|\s)(:|\[|\.|#)/g, '$1*$2');
+  sel = sel.replace(/(^|\s|\$)(:|\[|\.|#)/g, '$1*$2');
 
-  while (cap = /\s*((?:\w+|\*)(?:[.#:][^\s]+|\[[^\]]+\])*)\s*$/.exec(sel)) {
+  while (cap = /\s*(\$?(?:\w+|\*)(?:[.#:][^\s]+|\[[^\]]+\])*)\s*$/.exec(sel)) {
     len = sel.length - cap[0].length;
     cap = cap[1].split(/(?=[\[:.#])/);
     if (!qname) qname = cap[0];
     filter.push(comb(parse(cap)));
     if (len) {
       op = sel[len - 1];
-      // if the combinator doesn't exist, 
-      // assume it was a whitespace.
+      // the problem with the descendant combinator is
+      // it's just whitespace, we may have cut it off
+      // entirely with the regex. if the combinator
+      // doesn't exist, assume it was a whitespace.
       comb = combinators[op] || combinators[op = ' '];
       sel = sel.substring(0, op !== ' ' ? --len : len);
     } else {
@@ -354,6 +385,28 @@ var compile = function(sel) {
   return filter;
 };
 
+compile.group = function(sel) {
+  if (~sel.indexOf(',')) {
+    sel = sel.split(/,\s*(?![^\[]*["'])/);
+
+    var func = []
+      , i = 0
+      , l = sel.length;
+
+    for (; i < l; i++) {
+      func.push(compile(sel[i]));
+    }
+
+    l = func.length;
+    return function(el) {
+      for (i = 0; i < l; i++) {
+        if (func[i](el)) return true;
+      }
+    };
+  }
+  return compile(sel);
+};
+
 var make = function(func) {
   return function(el) {
     var i = 0, f;
@@ -368,20 +421,20 @@ var make = function(func) {
  * Selection
  */
 
-var select = function(sel, context) {
+var select = function(sel) {
   // split up groups
   if (~sel.indexOf(',')) {
-    var sel = sel.split(/,\s*(?![^\[]*["'])/)
-      , res = []
+    sel = sel.split(/,\s*(?![^\[]*["'])/);
+    var res = []
       , s = 0
       , sl = sel.length;
-
     for (; s < sl; s++) {
-      var cur = select(sel[s], context)
+      var cur = select(sel[s])
         , c = 0
         , cl = cur.length;
       for (; c < cl; c++) {
-        var item = cur[c], rl = res.length;
+        var item = cur[c]
+          , rl = res.length;
         while (rl-- && res[rl] !== item);
         if (rl === -1) res.push(item);
       }
@@ -395,9 +448,21 @@ var select = function(sel, context) {
     , scope = context.getElementsByTagName(test.qname)
     , el;
 
-  while (el = scope[i++]) {
-    if (test(el)) res.push(el);
+  if (subject) {
+    var last;
+    while (el = scope[i++]) {
+      if (test(el) && subject !== last) {
+        res.push(subject);
+        last = subject;
+      }
+    }
+    subject = null;
+  } else {
+    while (el = scope[i++]) {
+      if (test(el)) res.push(el);
+    }
   }
+
   return res;
 };
 
@@ -405,7 +470,7 @@ var select = function(sel, context) {
  * Compatibility
  */
 
-select = (function() {
+if(0) select = (function() {
   var _select = select;
   var slice = (function() {
     try {
@@ -421,30 +486,29 @@ select = (function() {
     }
   })();
   if (document.querySelectorAll) {
-    return function(sel, context) {
+    return function(sel) {
       try {
         return slice.call(context.querySelectorAll(sel));
       } catch(e) {
         return _select(sel, context);
       }
     };
+  } else {
+    return function(sel) {
+      if (!~sel.indexOf(' ')) {
+        if (sel[0] === '#' && /^#\w+$/.test(sel)) {
+          return [context.getElementById(sel.substring(1))];
+        }
+        if (sel[0] === '.' && /^\.\w+$/.test(sel)) try {
+          return slice.call(context.getElementsByClassName(sel.substring(1)));
+        } catch(e) {}
+        if (/^\w+$/.test(sel)) {
+          return slice.call(context.getElementsByTagName(sel));
+        }
+      }
+      return _select(sel, context);
+    };
   }
-  return function(sel, context) {
-    if (!~sel.indexOf(' ')) {
-      if (sel[0] === '#' && /^#\w+$/.test(sel)) {
-        return [context.getElementById(sel.substring(1))];
-      }
-      if (sel[0] === '.' && /^\.\w+$/.test(sel)) try {
-        return slice.call(
-          context.getElementsByClassName(sel.substring(1))
-        );
-      } catch(e) {}
-      if (/^\w+$/.test(sel)) {
-        return slice.call(context.getElementsByTagName(sel));
-      }
-    }
-    return _select(sel, context);
-  };
 })();
 
 // IE includes comments with `*`
@@ -462,15 +526,18 @@ if (function() {
  * Zest
  */
 
-var zest = function(sel, context) {
+var zest = function(sel, con) {
+  context = con || document;
   try {
-    return select(sel, context || document);
+    sel = select(sel);
   } catch(e) {
     if (typeof console !== 'undefined') {
       console.log(e.stack || e + '');
     }
-    return [];
+    sel = [];
   }
+  context = null;
+  return sel;
 };
 
 /**
@@ -480,14 +547,14 @@ var zest = function(sel, context) {
 zest.selectors = selectors;
 zest.operators = operators;
 zest.combinators = combinators;
-zest.compile = compile;
 
+zest.compile = compile.group;
 zest.matches = function(el, sel) {
   return !!compile(sel)(el);
 };
 zest.cache = function() {
   var cache = {}, _compile = compile;
-  zest.compile = compile = function(sel) {
+  compile = function(sel) {
     return cache[sel] || (cache[sel] = _compile(sel));
   };
 };
