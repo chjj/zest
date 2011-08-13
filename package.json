@@ -2,7 +2,7 @@
   "name": "zest-js",
   "description": "fast, lightweight, extensible css selector engine",
   "author": "Christopher Jeffrey",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "repository": "git://github.com/chjj/zest.git",
   "main": "./zest.js",
   "keywords": ["css", "selector", "engine"],
