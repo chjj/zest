@@ -1,4 +1,7 @@
-(function() {
+this.ZEST_DEBUG = 1;
+
+;(function() {
+
 // from: http://www.thespanner.co.uk/2009/01/29/detecting-browsers-javascript-hacks/
 var IE = (function(e) { try { e(); } catch(e) {} return !!e; })() || '\v' === 'v';
 
@@ -18,7 +21,7 @@ var slice = (function() {
   }
 })();
 
-this.assert = this.assert || {
+var assert = {
   error: function(err) {
     //throw new Error(err);
     console.error(err);
