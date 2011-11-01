@@ -121,6 +121,24 @@ var bench = function(sel, times) {
     console.log('sizzle:', (new Date().getTime()) - start);
   })();
 
+  (function() {
+    var start = (new Date().getTime());
+    for (var i = times; i--;) engine(sel);
+    console.log('engine:', (new Date().getTime()) - start);
+  })();
+
+  (function() {
+    var start = (new Date().getTime());
+    for (var i = times; i--;) Jaguar.search(sel);
+    console.log('jaguar:', (new Date().getTime()) - start);
+  })();
+
+  (function() {
+    var start = (new Date().getTime());
+    for (var i = times; i--;) qwery(sel);
+    console.log('qwery:', (new Date().getTime()) - start);
+  })();
+
   try {
     (function() {
       var start = (new Date().getTime());
