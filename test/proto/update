@@ -1,0 +1,18 @@
+#!/bin/bash
+
+p=$(dirname $0)
+
+zest=$(cat ${p}/../../lib/zest.js)
+prototype=$(cat ${p}/prototype_.js)
+
+echo "" > ${p}/prototype.js
+
+echo "$prototype" \
+  | grep __ZEST__ -B 100000 --color=never \
+  >> ${p}/prototype.js
+
+echo "$zest" >> ${p}/prototype.js
+
+echo "$prototype" \
+  | grep __ZEST__ -A 100000 --color=never \
+  >> ${p}/prototype.js
