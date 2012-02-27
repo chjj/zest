@@ -1,4 +1,4 @@
-var spawn = require('child_process').spawn;
+var fs = require('fs');
 
 var express = require('express')
   , app = express.createServer();
@@ -17,15 +17,18 @@ app.use(function(req, res, next) {
   next();
 });
 
-app.use(express.static(__dirname));
-app.use(express.static(__dirname + '/../lib'));
-
-var proto = express.static(__dirname + '/proto');
-app.use('/proto', function(req, res, next) {
-  var child = spawn(__dirname + '/proto/update');
-  child.on('exit', function() {
-    proto(req, res, next);
-  });
+var static = express.static(__dirname);
+app.use(function(req, res, next) {
+  if (~req.url.indexOf('proto')) {
+    // very ugly
+    var zest = fs.readFileSync(__dirname + '/../lib/zest.js', 'utf8');
+    var prototype = fs.readFileSync(__dirname + '/proto/prototype_.js', 'utf8');
+    prototype = prototype.replace('// ___ZEST___', zest);
+    fs.writeFileSync(__dirname + '/proto/prototype.js', prototype);
+  }
+  return static(req, res, next);
 });
+
+app.use(express.static(__dirname + '/../lib'));
 
 app.listen(8080);
