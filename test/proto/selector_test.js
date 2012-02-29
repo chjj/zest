@@ -103,6 +103,10 @@ new Test.Unit.Runner({
     this.assertEnumEqual($('chk_1', 'chk_2'), $$('#troubleForm2 input[name="brackets[5][]"]'));
     this.assertEnumEqual([$('chk_1')], $$('#troubleForm2 input[name="brackets[5][]"]:checked'));
     this.assertEnumEqual([$('chk_2')], $$('#troubleForm2 input[name="brackets[5][]"][value=2]'));
+
+    // FIXME: This is supposed to throw, according to QSA, because the
+    // brackets aren't surrounded by quotes. But then again, maybe we
+    // should just make our selector engine better than QSA.
     this.assertEnumEqual([], $$('#troubleForm2 input[name=brackets[5][]]'));
   },
 
@@ -121,8 +125,7 @@ new Test.Unit.Runner({
     this.assertElementsMatch(Selector.matchElements($('list').descendants(), 'li'), '#item_1', '#item_2', '#item_3');
     this.assertElementsMatch(Selector.matchElements($('fixtures').descendants(), 'a.internal'), '#link_1', '#link_2');
     this.assertEnumEqual([], Selector.matchElements($('fixtures').descendants(), 'p.last'));
-    // compile cant take groupings yet
-    //this.assertElementsMatch(Selector.matchElements($('fixtures').descendants(), '.inexistant, a.internal'), '#link_1', '#link_2');
+    this.assertElementsMatch(Selector.matchElements($('fixtures').descendants(), '.inexistant, a.internal'), '#link_1', '#link_2');
   },
 
   testSelectorFindElement: function() {
@@ -135,7 +138,6 @@ new Test.Unit.Runner({
   testElementMatch: function() {
     var span = $('dupL1');
 
-    // tests that should pass
     this.assert(span.match('span'));
     this.assert(span.match('span#dupL1'));
     this.assert(span.match('div > span'), 'child combinator');
@@ -164,8 +166,6 @@ new Test.Unit.Runner({
   testSelectorWithSpaceInAttributeValue: function() {
     this.assertEnumEqual([$('with_title')], $$('cite[title="hello world!"]'));
   },
-
-  // AND NOW COME THOSE NEW TESTS AFTER ANDREW'S REWRITE!
 
   testSelectorWithChild: function() {
     this.assertEnumEqual($('link_1', 'link_2'), $$('p.first > a'));
@@ -250,7 +250,7 @@ new Test.Unit.Runner({
     this.assertEnumEqual([], $$('#level1>*:only-child'));
     this.assertEnumEqual([$('level_only_child')], $$('#level1 *:only-child'));
     this.assertEnumEqual([], $$('#level1:only-child'));
-    //this.assertEnumEqual([$('link_2')], $$('#p *:nth-last-child(2)'), 'nth-last-child');
+    this.assertEnumEqual([$('link_2')], $$('#p *:nth-last-child(2)'), 'nth-last-child');
     this.assertEnumEqual([$('link_2')], $$('#p *:nth-child(3)'), 'nth-child');
     this.assertEnumEqual([$('link_2')], $$('#p a:nth-child(3)'), 'nth-child');
     this.assertEnumEqual($('item_2', 'item_3'), $$('#list > li:nth-child(n+2)'));
@@ -265,7 +265,7 @@ new Test.Unit.Runner({
   testSelectorWithFirstLastNthNthLastOfType: function() {
     this.assertEnumEqual([$('link_2')], $$('#p a:nth-of-type(2)'), 'nth-of-type');
     this.assertEnumEqual([$('link_1')], $$('#p a:nth-of-type(1)'), 'nth-of-type');
-    //this.assertEnumEqual([$('link_2')], $$('#p a:nth-last-of-type(1)'), 'nth-last-of-type');
+    this.assertEnumEqual([$('link_2')], $$('#p a:nth-last-of-type(1)'), 'nth-last-of-type');
     this.assertEnumEqual([$('link_1')], $$('#p a:first-of-type'), 'first-of-type');
     this.assertEnumEqual([$('link_2')], $$('#p a:last-of-type'), 'last-of-type');
   },
@@ -273,8 +273,8 @@ new Test.Unit.Runner({
   testSelectorWithNot: function() {
     this.assertEnumEqual([$('link_2')], $$('#p a:not(a:first-of-type)'), 'first-of-type');
     this.assertEnumEqual([$('link_1')], $$('#p a:not(a:last-of-type)'), 'last-of-type');
-    //this.assertEnumEqual([$('link_2')], $$('#p a:not(a:nth-of-type(1))'), 'nth-of-type');
-    //this.assertEnumEqual([$('link_1')], $$('#p a:not(a:nth-last-of-type(1))'), 'nth-last-of-type');
+    this.assertEnumEqual([$('link_2')], $$('#p a:not(a:nth-of-type(1))'), 'nth-of-type');
+    this.assertEnumEqual([$('link_1')], $$('#p a:not(a:nth-last-of-type(1))'), 'nth-last-of-type');
     this.assertEnumEqual([$('link_2')], $$('#p a:not([rel~=nofollow])'), 'attribute 1');
     this.assertEnumEqual([$('link_2')], $$('#p a:not(a[rel^=external])'), 'attribute 2');
     this.assertEnumEqual([$('link_2')], $$('#p a:not(a[rel$=nofollow])'), 'attribute 3');
@@ -307,7 +307,7 @@ new Test.Unit.Runner({
     this.assertEnumEqual($$('ul > li:nth-child(even)'), $$('ul > li:nth-child(2n)'));
     this.assertEnumEqual($$('ul > li:nth-child(odd)'), $$('ul > li:nth-child(2n+1)'));
     this.assertEnumEqual($$('ul > li:first-child'), $$('ul > li:nth-child(1)'));
-    //this.assertEnumEqual($$('ul > li:last-child'), $$('ul > li:nth-last-child(1)'));
+    this.assertEnumEqual($$('ul > li:last-child'), $$('ul > li:nth-last-child(1)'));
     this.assertEnumEqual($$('ul > li:nth-child(n-999)'), $$('ul > li'));
     this.assertEnumEqual($$('ul>li'), $$('ul > li'));
     this.assertEnumEqual($$('#p a:not(a[rel$="nofollow"])>em'), $$('#p a:not(a[rel$="nofollow"]) > em'))
@@ -321,9 +321,16 @@ new Test.Unit.Runner({
   },
 
   testCommasFor$$: function() {
-    // strange comma tests
-    //this.assertEnumEqual($('p', 'link_1', 'list', 'item_1', 'item_3', 'troubleForm'), $$('#list, .first,#item_3 , #troubleForm'));
-    //this.assertEnumEqual($('p', 'link_1', 'list', 'item_1', 'item_3', 'troubleForm'), $$('#list, .first,', '#item_3 , #troubleForm'));
+    // FIXME: Zest returns these in a different order.
+    // This can be solved by sorting results with
+    // compareDocumentPosition.
+    this.assertEnumEqual($('p', 'link_1', 'list', 'item_1', 'item_3', 'troubleForm'), $$('#list, .first,#item_3 , #troubleForm'));
+
+    // FIXME: This selector has 2 consecutive commas.
+    // It causes 'Error: SYNTAX_ERR: DOM Exception 12'
+    // with QSA. Is this intentional?
+    this.assertEnumEqual($('p', 'link_1', 'list', 'item_1', 'item_3', 'troubleForm'), $$('#list, .first,', '#item_3 , #troubleForm'));
+
     this.assertEnumEqual($('commaParent', 'commaChild'), $$('form[title*="commas,"], input[value="#commaOne,#commaTwo"]'));
     this.assertEnumEqual($('commaParent', 'commaChild'), $$('form[title*="commas,"]', 'input[value="#commaOne,#commaTwo"]'));
   },
@@ -390,15 +397,11 @@ new Test.Unit.Runner({
     document.body.appendChild(el);
     this.assertEqual(2, $(el).select('ul li').length);
     document.body.removeChild(el);
-  }
+  },
 
-// this will fail because of findElement and how compile()
-// cant parse groupings. temporarily disabled.
-/*
   testFindElementWithIndexWhenElementsAreNotInDocumentOrder: function() {
     var ancestors = $("target_1").ancestors();
     this.assertEqual($("container_2"), Selector.findElement(ancestors, "[container], .container", 0));
     this.assertEqual($("container_1"), Selector.findElement(ancestors, "[container], .container", 1));
   }
-*/
 });
