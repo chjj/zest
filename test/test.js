@@ -92,6 +92,7 @@ var runTests = function() {
   assert.selector('header h1');
   assert.selector('article p');
   assert.selector(':not(a)');
+  assert.selector('.bar');
   assert.selector('[id="hi"]');
   assert.selector('h1 + time[datetime]');
   assert.selector('h1 + time[datetime]:last-child');
