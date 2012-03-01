@@ -1,6 +1,6 @@
 all:
-	@cp lib/zest.js zest.js
-	@uglifyjs -mt --unsafe -o zest.min.js zest.js
+	@cp lib/zest.js .
+	@uglifyjs -o zest.min.js zest.js
 
 clean:
 	@rm zest.js

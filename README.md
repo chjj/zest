@@ -68,6 +68,12 @@ Zest will cache compiled selectors if it can't delegate to
 above were performed with the caching mechanism disabled. If caching were
 enabled, Zest would be faster than the native `document.querySelectorAll`.__
 
+## Install
+
+``` bash
+$ npm install zest.js
+```
+
 ## Usage
 
 ``` js
