@@ -2,7 +2,7 @@
   "name": "zest.js",
   "description": "Fast, lightweight, extensible css selector engine.",
   "author": "Christopher Jeffrey",
-  "version": "0.0.3",
+  "version": "0.0.3-1",
   "main": "./lib/zest.js",
   "ender": "./ext/zest.ender.js",
   "preferGlobal": false,
