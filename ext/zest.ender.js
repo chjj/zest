@@ -1,23 +1,28 @@
 /**
- * Zest support for ender.js
- * https://github.com/ender-js/Ender
+ * zest.js support for ender.js
+ *
+ * zest.js
+ * Copyright (c) 2011-2012, Christopher Jeffrey
+ * https://github.com/chjj/zest
+ *
+ * ender.js
+ * copyright @ded and @fat
+ * https://github.com/ender-js
  */
 
-// i try not to change the expected functionality here, however,
+// I try not to change the expected functionality here, however,
 // these functions seem like they should belong in a dom library,
 // not as part of the selector engine binding.
-(function() {
+
+;(function() {
   var window = this
     , document = this.document
-    , zest = this.zest;
-
-  // remove zest
-  delete this.zest;
+    , zest = this.zest.noConflict();
 
   $._select = function(str, context) {
     context = context || document;
     if (/^\s*</.test(str)) {
-      context = context.nodeType === 9 
+      context = context.nodeType === 9
               ? context : context.ownerDocument;
 
       var out = []

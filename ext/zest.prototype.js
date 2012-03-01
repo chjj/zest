@@ -1,5 +1,12 @@
 /**
- * Zest support for Prototype
+ * zest.js support for Prototype
+ *
+ * zest.js
+ * Copyright (c) 2011-2012, Christopher Jeffrey
+ * https://github.com/chjj/zest
+ *
+ * Prototype
+ * Copyright (c) 2005-2010 Sam Stephenson
  * https://github.com/sstephenson/prototype
  */
 

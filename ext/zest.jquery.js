@@ -1,36 +1,39 @@
 /**
- * Zest support for jQuery
+ * zest.js support for jQuery
+ *
+ * zest.js
+ * Copyright (c) 2011-2012, Christopher Jeffrey
+ * https://github.com/chjj/zest
+ *
+ * jQuery
+ * Copyright (c) 2009 John Resig
  * https://github.com/jquery/jquery
  */
 
+;(function() {
+
 // Using this, jQuery can be built with Zest as its selector engine.
+
+// Unfortunately, Sizzle exposes a lot of functions to jQuery. These functions
+// are necessary in order for jQuery to run properly. jQuery wasn't made to
+// work with any selector engine but Sizzle. They're incredibly tightly
+// coupled.
 
 // The functions you see here were taken directly from Sizzle to ensure jQuery
 // remains working properly.
 
-// To be honest, this is absolutely horrible: *none* of this should be the
-// selector engine's job. These functions belong in jQuery core as they are
-// ubiquitous and used everywhere internally. jQuery doesn't even use these
-// methods for anything selector-related (it uses them for non-selector dom
-// traversal), among other things. But alas, jQuery was only designed to work
-// with sizzle and it undeniably assumes its use, so I had to grab a number of
-// sizzle methods to keep jQuery working correctly.
-(function() {
-var engine = window.zest;
-delete window.zest;
+var engine = this.zest.noConflict();
 
 engine.matchesSelector = engine.matches;
 
 engine.matches = function(sel, set) {
-  var res = engine(sel)
-    , i = set.length
-    , l;
+  var test = engine.compile(sel)
+    , i = set.length;
 
-  s: while (i--) {
-    l = res.length;
-    while (l--) if (res[l] === set[i]) continue s;
-    set.splice(i, 1);
+  while (i--) {
+    if (!test(set[i])) set.splice(i, 1);
   }
+
   return set;
 };
 
@@ -84,7 +87,7 @@ engine.getText = function( elems ) {
   return ret;
 };
 
-var hasDuplicate = false, 
+var hasDuplicate = false,
     baseHasDuplicate = true;
 
 [0, 0].sort(function() {
@@ -113,11 +116,11 @@ if ( document.documentElement.compareDocumentPosition ) {
       return a.sourceIndex - b.sourceIndex;
     }
 
-    var al, bl, 
-      ap = [], 
-      bp = [], 
-      aup = a.parentNode, 
-      bup = b.parentNode, 
+    var al, bl,
+      ap = [],
+      bp = [],
+      aup = a.parentNode,
+      bup = b.parentNode,
       cur = aup;
 
     if ( aup === bup ) {
@@ -217,4 +220,5 @@ jQuery.isXMLDoc = engine.isXML;
 jQuery.contains = engine.contains;
 
 jQuery.zest = engine;
-})();
+
+}).call(this);
