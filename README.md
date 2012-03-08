@@ -5,6 +5,12 @@ __zest.js__ is a fast, lightweight, and extensible CSS selector engine.
 Zest was designed to be very concise while still supporting CSS3/CSS4
 selectors and remaining fast.
 
+## Usage
+
+``` js
+zest('section! > div[title="hello" i] > :local-link /href/ h1');
+```
+
 ## Benchmarks
 
 Each selector run 1000 times on Google Chrome 13 beta (ms):
@@ -72,13 +78,6 @@ enabled, Zest would be faster than the native `document.querySelectorAll`.__
 
 ``` bash
 $ npm install zest.js
-```
-
-## Usage
-
-``` js
-// second parameter is the context
-zest('header > h1', document);
 ```
 
 ## Notes
