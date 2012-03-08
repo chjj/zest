@@ -13,6 +13,8 @@
 //= require "zest"
 
 ;(function(engine) {
+  engine.noNative();
+
   var extendElements = Prototype.Selector.extendElements;
 
   function select(selector, scope) {
