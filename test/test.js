@@ -28,11 +28,11 @@ var assert = {
   }
 };
 
-assert.selector = function(sel) {
+assert.selector = function(sel, node) {
   try {
-    var got = zest(sel)
+    var got = zest(sel, node)
     //, expected = Sizzle(sel)
-      , expected = slice(document.querySelectorAll(sel));
+      , expected = slice((node || document).querySelectorAll(sel));
   } catch(e) {
     return true;
   }
@@ -75,6 +75,8 @@ assert.selector = function(sel) {
 var runTests = function() {
   assert.selector('body > header > h1');
   assert.selector('h1');
+  assert.selector('h1 + h1');
+  assert.selector('li + li');
   assert.selector('*');
   assert.selector('article > header');
   assert.selector('header + p');
@@ -104,6 +106,13 @@ var runTests = function() {
   // this test wont pass because when it comes to groupings
   // zest doesn't get the order of the elements exactly perfect
   //assert.selector('a, h1');
+
+  var div = document.createElement('div');
+  div.innerHTML = '<h1>foo</h1>';
+  assert.selector('h1', div);
+  assert.selector('div > h1', div);
+  assert.selector('* > div > h1', div);
+
 };
 
 var bench = function(sel, times) {
