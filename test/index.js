@@ -1,7 +1,7 @@
 var fs = require('fs');
 
 var express = require('express')
-  , app = express.createServer();
+  , app = express();
 
 app.use(function(req, res, next) {
   var setHeader = res.setHeader;
