@@ -117,7 +117,7 @@ zest.selectors[':name'] = function(param) {
 };
 ```
 
-__NOTE__: if you're pseudo-class does not take a parameter, there will be no
+__NOTE__: if your pseudo-class does not take a parameter, there will be no
 closure.
 
 ### Adding an attribute operator
