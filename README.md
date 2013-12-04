@@ -157,6 +157,12 @@ The `test` function tests whatever simple selectors it needs to look for, but
 it isn't important what it does. The most important part is that you return
 the relevant element once it's found.
 
+### Contribution and License Agreement
+
+If you contribute code to marked, you are implicitly allowing your code to be
+distributed under the MIT license. You are also implicitly verifying that all
+code is your original work. `</legalese>`
+
 ## License
 
 (c) Copyright 2011-2012, Christopher Jeffrey (MIT Licensed).
