@@ -1,6 +1,6 @@
 # Zest
 
-__zest.js__ is a fast, lightweight, and extensible CSS selector engine.
+__zest__ is a fast, lightweight, and extensible CSS selector engine.
 
 Zest was designed to be very concise while still supporting CSS3/CSS4
 selectors and remaining fast.
@@ -77,7 +77,7 @@ enabled, Zest would be faster than the native `document.querySelectorAll`.__
 ## Install
 
 ``` bash
-$ npm install zest.js
+$ npm install zest
 ```
 
 ## Notes
