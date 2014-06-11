@@ -1,5 +1,5 @@
 {
-  "name": "zest.js",
+  "name": "zest",
   "description": "Fast, lightweight, extensible css selector engine.",
   "author": "Christopher Jeffrey",
   "version": "0.0.4",
